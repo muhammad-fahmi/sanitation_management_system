@@ -14,7 +14,8 @@ class Admin extends BaseController
         // Check user info
         if (session()->has('jwt')) {
             $decode = $this->jwt->decode(session()->get('jwt'));
-            if (time() > $decode['expire_time'] || $decode['slug'] != 'admin') {
+            $role = $decode['user_role'] ?? $decode['slug'] ?? '';
+            if (time() > ($decode['expire_time'] ?? 0) || $role !== 'admin') {
                 return redirect()->to('auth/login');
             }
         } else {

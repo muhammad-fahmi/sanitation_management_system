@@ -14,7 +14,8 @@ class Verifikator extends BaseController
             return redirect()->to('auth/login');
         }
         $decode = $this->jwt->decode(session()->get('jwt'));
-        if (time() > $decode['expire_time'] || $decode['user_role'] != 'verifikator') {
+        $role = $decode['user_role'] ?? $decode['slug'] ?? '';
+        if (time() > ($decode['expire_time'] ?? 0) || $role !== 'verifikator') {
             return redirect()->to('auth/login');
         }
 
@@ -33,7 +34,8 @@ class Verifikator extends BaseController
             return redirect()->to('auth/login');
         }
         $decode = $this->jwt->decode(session()->get('jwt'));
-        if (time() > $decode['expire_time'] || $decode['user_role'] != 'verifikator') {
+        $role = $decode['user_role'] ?? $decode['slug'] ?? '';
+        if (time() > ($decode['expire_time'] ?? 0) || $role !== 'verifikator') {
             return redirect()->to('auth/login');
         }
 

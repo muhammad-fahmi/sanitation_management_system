@@ -46,7 +46,8 @@ class Task extends BaseController
             return redirect()->to('auth/login');
         }
         $decode = $this->jwt->decode(session()->get('jwt'));
-        if (time() > $decode['expire_time'] || $decode['user_role'] != 'administrator') {
+        $role = $decode['user_role'] ?? $decode['slug'] ?? '';
+        if (time() > ($decode['expire_time'] ?? 0) || $role !== 'administrator') {
             return redirect()->to('auth/login');
         }
 

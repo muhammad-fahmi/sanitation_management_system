@@ -60,7 +60,8 @@ abstract class BaseController extends Controller
         if ($jwt) {
             try {
                 $user = $this->jwt->decode($jwt);
-                if ($user && $user['user_role'] === 'operator') {
+                $role = $user['user_role'] ?? $user['slug'] ?? '';
+                if ($user && $role === 'operator') {
                     $db = \Config\Database::connect();
                     $revisedSubmissions = $db->table('task_submissions')
                         ->select('room_id')
