@@ -62,10 +62,10 @@ abstract class BaseController extends Controller
                 $user = $this->jwt->decode($jwt);
                 if ($user && $user['user_role'] === 'operator') {
                     $db = \Config\Database::connect();
-                    $revisedSubmissions = $db->table('r_task_submission')
-                        ->select('location_id')
+                    $revisedSubmissions = $db->table('task_submissions')
+                        ->select('room_id')
                         ->distinct()
-                        ->where('status', 'revisi')
+                        ->where('status', 'revision_requested')
                         ->get()
                         ->getResultArray();
                     $revisionRoomCount = count($revisedSubmissions);

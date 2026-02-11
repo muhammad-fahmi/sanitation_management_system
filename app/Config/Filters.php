@@ -2,7 +2,6 @@
 
 namespace Config;
 
-use App\Filters\LoginState;
 use App\Filters\MyCors;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
@@ -36,7 +35,10 @@ class Filters extends BaseFilters
         'forcehttps' => ForceHTTPS::class,
         'pagecache' => PageCache::class,
         'performance' => PerformanceMetrics::class,
-        'mycors' => MyCors::class
+        'mycors' => MyCors::class,
+        'adminFilter' => \App\Filters\AdminFilter::class,
+        'operatorFilter' => \App\Filters\OperatorFilter::class,
+        'verifikatorFilter' => \App\Filters\VerifikatorFilter::class,
     ];
 
     /**
@@ -78,7 +80,7 @@ class Filters extends BaseFilters
             // 'honeypot',
             // 'invalidchars',
             // 'csrf',
-            'mycors'
+            'mycors',
         ],
         'after' => [
             // 'honeypot',
@@ -110,5 +112,9 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        'adminFilter' => ['before' => ['admin', 'admin/*']],
+        'operatorFilter' => ['before' => ['operator', 'operator/*']],
+        'verifikatorFilter' => ['before' => ['verifikator', 'verifikator/*']],
+    ];
 }

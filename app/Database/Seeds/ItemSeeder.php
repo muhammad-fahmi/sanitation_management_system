@@ -13,7 +13,7 @@ class ItemSeeder extends Seeder
 
         try {
             // Truncate the table
-            $this->db->table('m_items')->truncate();
+            $this->db->table('items')->truncate();
 
             // Read data from Excel
             $excelPath = ROOTPATH . 'datasource.xlsx';
@@ -23,7 +23,17 @@ class ItemSeeder extends Seeder
 
             $reader = IOFactory::createReader('Xlsx');
             $spreadsheet = $reader->load($excelPath);
-            $sheet = $spreadsheet->getSheetByName('m_items');
+            // Support both legacy sheet name and current
+            $sheetNames = ['items', 'm_items'];
+            $sheet = null;
+            foreach ($sheetNames as $s) {
+                $sheet = $spreadsheet->getSheetByName($s);
+                if ($sheet)
+                    break;
+            }
+            if (!$sheet) {
+                throw new \Exception("Excel sheet for items not found (looked for: " . implode(', ', $sheetNames) . ")");
+            }
             $data = $sheet->toArray();
 
             $items = [];
@@ -38,14 +48,16 @@ class ItemSeeder extends Seeder
                 }
 
                 $items[] = [
-                    'location_id' => (int) $row[1],
-                    'item_name' => trim($row[2]),
+                    'room_id' => (int) $row[1],
+                    'name' => trim($row[2]),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ];
             }
 
             // Insert items
             if (!empty($items)) {
-                $this->db->table('m_items')->insertBatch($items);
+                $this->db->table('items')->insertBatch($items);
                 echo "✓ Seeded " . count($items) . " items\n";
             }
         } catch (\Exception $e) {

@@ -1,0 +1,228 @@
+openapi: 3.0.3
+info:
+  title: Bionic Backend API (partial)
+  version: 1.0.0
+  description: "Partial OpenAPI spec for core endpoints (auth, admin user management, operator submissions, verifikator). Authentication uses a session cookie named `jwt`."
+servers:
+  - url: http://localhost:8080/
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: jwt
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required: [username, password]
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+    ValidationError:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+    UserCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        user_role:
+          type: string
+          enum: [operator, verifikator, administrator]
+        username:
+          type: string
+        password:
+          type: string
+        password_confirm:
+          type: string
+      required: [name, user_role, username, password, password_confirm]
+    UserResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+    SubmissionItem:
+      type: object
+      properties:
+        location_id:
+          type: integer
+        item_id:
+          type: integer
+        action_id:
+          type: integer
+        date:
+          type: string
+          format: date
+    SubmissionRequest:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        submissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubmissionItem"
+      required: [user_id, submissions]
+    VerifyRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+          enum: [verifikasi, revisi]
+        revise_description:
+          type: string
+      required: [id, action]
+    ApiStatus:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+paths:
+  /auth/login:
+    post:
+      summary: Login and set JWT session cookie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful (redirect or JSON)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+  /auth/logout:
+    get:
+      summary: Logout and destroy session
+      responses:
+        "302":
+          description: Redirect to login
+  /admin/manage/user/add:
+    post:
+      security:
+        - cookieAuth: []
+      summary: Add a new user (AJAX)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          description: Validation or uniqueness error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+  /admin/manage/user/get_datatable:
+    post:
+      security:
+        - cookieAuth: []
+      summary: Datatable AJAX for users
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Datatable result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recordsTotal:
+                    type: integer
+                  recordsFiltered:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+  /operator/add:
+    post:
+      security:
+        - cookieAuth: []
+      summary: Submit task submissions (JSON array in `submissions`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionRequest"
+      responses:
+        "200":
+          description: Submission saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiStatus"
+        "400":
+          description: Invalid data
+  /verifikator/update:
+    post:
+      security:
+        - cookieAuth: []
+      summary: Verify or request revision for a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiStatus"
+        "400":
+          description: Invalid action
+        "401":
+          description: Unauthorized
+security:
+  - {}

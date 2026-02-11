@@ -15,14 +15,15 @@
                                 style="width: 110px; height: 110px;">
                                 <div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
                                     style="width: 100px; height: 100px;">
-                                    <img src="<?= base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' ?>"
-                                        alt="" class="w-100 h-100">
+                                    <?php $displayName = display_name($user_info); ?>
+                                    <?php $displayRole = display_role($user_info); ?>
+                                    <img src="<?= base_url('assets/profiles/') . esc($displayName) . '.jpg' ?>" alt="" class="w-100 h-100">
                                 </div>
                             </div>
                         </div>
                         <div class="text-center">
-                            <h5 class="fs-5 mb-0 fw-semibold text-capitalize"><?= esc($user_info['name']) ?></h5>
-                            <p class="mb-0 fs-4"><?= esc($user_info['user_role']) ?></p>
+                            <h5 class="fs-5 mb-0 fw-semibold text-capitalize"><?= esc($displayName) ?></h5>
+                            <p class="mb-0 fs-4"><?= esc($displayRole) ?></p>
                         </div>
                     </div>
                 </div>
@@ -68,12 +69,12 @@
                                     <td><strong><?= $no++ ?></strong></td>
                                     <td><?= date('d M Y', strtotime($submission['date'])) ?></td>
                                     <td><?= esc($submission['item_name'] ?? 'Item Tidak Ditemukan') ?></td>
-                                    <td><?= esc($submission['action_names'] ?? 'Aksi Tidak Ditemukan') ?></td>
-                                    <td><?= esc($submission['location_name'] ?? 'Lokasi Tidak Ditemukan') ?></td>
+                                    <td><?= esc(item_name($submission) ?: 'Item Tidak Ditemukan') ?></td>
+                                    <td><?= esc(room_name($submission) ?: 'Lokasi Tidak Ditemukan') ?></td>
                                     <td><small><?= esc($submission['revision_message'] ?? '-') ?></small></td>
                                     <td>
                                         <button class="btn btn-sm btn-primary"
-                                            onclick="goToRoom(<?= $submission['location_id'] ?>)">
+                                            onclick="goToRoom(<?= esc($submission['location_id'] ?? $submission['room_id'] ?? 0) ?>)">
                                             <iconify-icon icon="solar:arrow-right-bold"></iconify-icon> Revisi
                                         </button>
                                     </td>

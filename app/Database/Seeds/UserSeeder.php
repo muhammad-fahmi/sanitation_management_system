@@ -3,64 +3,73 @@
 namespace App\Database\Seeds;
 
 use CodeIgniter\Database\Seeder;
+use \App\Models\UserModel;
 
 class UserSeeder extends Seeder
 {
     public function run()
     {
-        $this->db->disableForeignKeyChecks();
+
+        $userModel = new UserModel();
 
         try {
-            // Truncate the table
-            $this->db->table('m_users')->truncate();
-
+            $userModel->builder()->db()->query('SET FOREIGN_KEY_CHECKS=0;');
+            $userModel->builder()->truncate();
             $data = [
                 [
-                    'name' => 'prasongko',
-                    'user_role' => 'administrator',
                     'username' => 'prasongko',
-                    'password' => password_hash('prasongko', PASSWORD_BCRYPT),
-                    'is_active' => 1
+                    'email' => 'prasongko37@gmail.com',
+                    'password' => password_hash('prasongko123', PASSWORD_BCRYPT),
+                    'is_active' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ],
                 [
-                    'name' => 'yanto',
-                    'user_role' => 'operator',
                     'username' => 'yanto',
-                    'password' => password_hash('yanto', PASSWORD_BCRYPT),
-                    'is_active' => 1
+                    'email' => 'yanto123@gmail.com',
+                    'password' => password_hash('yanto123', PASSWORD_BCRYPT),
+                    'is_active' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ],
                 [
-                    'name' => 'octo',
-                    'user_role' => 'operator',
                     'username' => 'octo',
-                    'password' => password_hash('octo', PASSWORD_BCRYPT),
-                    'is_active' => 1
+                    'email' => 'octo123@gmail.com',
+                    'password' => password_hash('octo123', PASSWORD_BCRYPT),
+                    'is_active' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ],
                 [
-                    'name' => 'theo',
-                    'user_role' => 'operator',
                     'username' => 'theo',
-                    'password' => password_hash('theo', PASSWORD_BCRYPT),
-                    'is_active' => 1
+                    'email' => 'theo123@gmail.com',
+                    'password' => password_hash('theo123', PASSWORD_BCRYPT),
+                    'is_active' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ],
                 [
-                    'name' => 'rian',
-                    'user_role' => 'verifikator',
                     'username' => 'rian',
-                    'password' => password_hash('rian', PASSWORD_BCRYPT),
-                    'is_active' => 1
+                    'email' => 'rian123@gmail.com',
+                    'password' => password_hash('rian123', PASSWORD_BCRYPT),
+                    'is_active' => 1,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ],
             ];
 
+
             if (!empty($data)) {
-                $this->db->table('m_users')->insertBatch($data);
+                foreach ($data as $user) {
+                    $userModel->save($user);
+                }
                 echo "✓ Seeded " . count($data) . " users\n";
             }
         } catch (\Exception $e) {
             echo "✗ Error seeding users: " . $e->getMessage() . "\n";
             throw $e;
         } finally {
-            $this->db->enableForeignKeyChecks();
+            $userModel->builder()->db()->query('SET FOREIGN_KEY_CHECKS=1;');
         }
     }
 }

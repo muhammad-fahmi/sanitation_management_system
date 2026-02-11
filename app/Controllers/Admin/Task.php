@@ -5,7 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\ActionModel;
 use App\Models\ItemModel;
-use App\Models\LocationModel;
+use App\Models\RoomModel;
 
 class Task extends BaseController
 {
@@ -51,9 +51,10 @@ class Task extends BaseController
         }
 
         if ($location_id != null && $item_id != null) {
-            $locationModel = new LocationModel();
+            $locationModel = new RoomModel();
             $itemModel = new ItemModel();
-            $location_name = $locationModel->find($location_id)['location_name'];
+            $location = $locationModel->find($location_id);
+            $location_name = $location['name'] ?? ($location['location_name'] ?? '');
             $item_name = $itemModel->find($item_id)['item_name'];
             $sent_data = [
                 'page_title' => 'Manajemen Aksi',
@@ -67,8 +68,9 @@ class Task extends BaseController
         }
 
         if ($location_id != null) {
-            $locationModel = new LocationModel();
-            $location_name = $locationModel->find($location_id)['location_name'];
+            $locationModel = new RoomModel();
+            $location = $locationModel->find($location_id);
+            $location_name = $location['name'] ?? ($location['location_name'] ?? '');
             $sent_data = [
                 'page_title' => 'Manajemen Item',
                 'user_info' => $this->jwt->decode(session()->get('jwt')),
@@ -89,7 +91,7 @@ class Task extends BaseController
 
     public function get_datatable_location()
     {
-        $locationModel = new LocationModel();
+        $locationModel = new RoomModel();
         $param = $this->_getDatatableParam();
         $result = $this->_getDatatableResponse($locationModel, 'get_datatable_location', $param);
         return $this->response->setJSON($result);
@@ -115,7 +117,7 @@ class Task extends BaseController
     {
         $id = $this->request->getVar('id');
         $type = $this->request->getVar('type');
-        $locationModel = new LocationModel();
+        $locationModel = new RoomModel();
 
         switch ($type) {
             case 'add':
@@ -254,9 +256,9 @@ class Task extends BaseController
 
     public function add_location()
     {
-        $locationModel = new LocationModel();
+        $locationModel = new RoomModel();
         $rules = [
-            'location' => 'required|min_length[3]|max_length[100]|is_unique[m_locations.location_name]',
+            'location' => 'required|min_length[3]|max_length[100]|is_unique[rooms.name]',
         ];
         $messages = [
             'location' => [
@@ -337,7 +339,6 @@ class Task extends BaseController
             'message' => 'Gagal menambahkan item'
         ]);
     }
-
     public function add_action()
     {
         $actionModel = new ActionModel();
@@ -376,9 +377,9 @@ class Task extends BaseController
     public function update_location()
     {
         $id = $this->request->getVar('id');
-        $locationModel = new LocationModel();
+        $locationModel = new RoomModel();
         $rules = [
-            'location' => 'required|min_length[3]|max_length[100]|is_unique[m_locations.location_name,location_id,' . $id . ']',
+            'location' => 'required|min_length[3]|max_length[100]|is_unique[rooms.name,id,' . $id . ']',
         ];
         $messages = [
             'location' => [
@@ -486,7 +487,7 @@ class Task extends BaseController
     public function delete_location()
     {
         $id = $this->request->getVar('id');
-        $locationModel = new LocationModel();
+        $locationModel = new RoomModel();
         $location = $locationModel->find($id);
 
         if (!$location) {

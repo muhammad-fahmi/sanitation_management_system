@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\UserModel;
+use App\Models\UserRoleModel;
 use CodeIgniter\HTTP\IncomingRequest;
 
 /**
@@ -13,31 +14,30 @@ class Auth extends BaseController
     // Auth - Login Entry Point
     public function login()
     {
-        if (session()->has('jwt')) {
-            $jwt = $this->jwt->decode(session()->get('jwt'));
-            if (time() <= $jwt['expire_time']) {
-                if ($jwt['user_role'] == 'administrator') {
-                    $role = 'admin';
-                } else if ($jwt['user_role'] == 'operator') {
-                    $role = 'operator';
-                } else if ($jwt['user_role'] == 'verifikator') {
-                    $role = 'verifikator';
-                } else {
-                    return redirect()->to('auth/login');
+        if ($this->request->is('GET')) {
+            if (session()->has('jwt')) {
+                $jwt = $this->jwt->decode(session()->get('jwt'));
+                if (time() <= $jwt['expire_time']) {
+                    if ($jwt['slug'] == 'admin') {
+                        $role = 'admin';
+                    } else if ($jwt['slug'] == 'operator') {
+                        $role = 'operator';
+                    } else if ($jwt['slug'] == 'verifikator') {
+                        $role = 'verifikator';
+                    } else {
+                        return redirect()->to('auth/login');
+                    }
+                    return redirect()->to($role);
                 }
-                return redirect()->to($role);
             }
+
+            $sent_data = [
+                'page_title' => "Login Page"
+            ];
+            return view('auth/vw_login', $sent_data);
         }
 
-        $sent_data = [
-            'page_title' => "Login Page"
-        ];
-        return view('auth/vw_login', $sent_data);
-    }
-
-    // Login Handler
-    public function login_handler()
-    {
+        // Guard clause for non-POST requests
         if (!$this->request->is('post')) {
             return redirect('auth/login');
         }
@@ -76,14 +76,13 @@ class Auth extends BaseController
 
         $validData = $this->validator->getValidated();
 
-        $username = $validData['username'];
-        $password = $validData['password'];
+        $input_username = $validData['username'];
+        $input_password = $validData['password'];
 
-        $model = new UserModel();
-        $user = $model
-            ->select('user_id,name,user_role,password')
-            ->where('username', $username)
-            ->first();
+        $userModel = new UserModel();
+        $userRoleModel = new UserRoleModel();
+        $id_user = $userModel->where('username', $input_username)->select('id')->first()['id'];
+        $user = $userRoleModel->getUserDetail($id_user);
 
         if (!$user) {
             // User not found
@@ -93,13 +92,13 @@ class Auth extends BaseController
         }
 
         [
-            'user_id' => $id,
-            'name' => $name,
-            'user_role' => $role,
-            'password' => $db_password
+            'user_id' => $user_id,
+            'username' => $username,
+            'password' => $password,
+            'slug' => $slug,
         ] = $user;
 
-        if (!password_verify($password, $db_password)) {
+        if (!password_verify($input_password, $password)) {
             // Password incorrect
             return redirect()->to('/auth/login')
                 ->withInput()
@@ -107,24 +106,24 @@ class Auth extends BaseController
         }
 
         // Handle different user roles
-        if ($role == 'verifikator') {
+        if ($slug == 'verifikator') {
             $data = [
-                'user_id' => $id,
-                'name' => $name,
-                'user_role' => $role,
-                'expire_time' => time() + (5 * 60)
+                'user_id' => $user_id,
+                'username' => $username,
+                'slug' => $slug,
+                'expire_time' => strtotime('+1 day', time())
             ];
 
             $this->jwt->encode($data);
             return redirect('verifikator');
         }
 
-        if ($role == 'administrator') {
+        if ($slug == 'admin') {
             $data = [
-                'user_id' => $id,
-                'name' => $name,
-                'user_role' => $role,
-                'expire_time' => time() + (5 * 60)
+                'user_id' => $user_id,
+                'username' => $username,
+                'slug' => $slug,
+                'expire_time' => strtotime('+1 day', time())
             ];
 
             $this->jwt->encode($data);
@@ -133,10 +132,10 @@ class Auth extends BaseController
 
         // Store shift info in session including dates for notification logic
         $data = [
-            'user_id' => $id,
-            'name' => $name,
-            'user_role' => $role,
-            'expire_time' => time() + (5 * 60)
+            'user_id' => $user_id,
+            'username' => $username,
+            'slug' => $slug,
+            'expire_time' => strtotime('+1 day', time())
         ];
 
         $this->jwt->encode($data);

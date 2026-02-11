@@ -52,7 +52,9 @@ if (isset($user_info) && $user_info == null) {
                         style="background: url(<?= base_url('assets/images/backgrounds/user-info.jpg') ?>) no-repeat;">
                         <!-- User profile image -->
                         <div class="profile-img">
-                            <img src="<?= (esc($user_info['user_role']) != 'administrator') ? base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' : base_url('assets/images/profile/user-1.jpg') ?>"
+                            <?php $currentSlug = $user_info['slug'] ?? '';
+                            $currentUsername = $user_info['username'] ?? 'Markarn Doe'; ?>
+                            <img src="<?= ($currentSlug != 'admin') ? base_url('assets/profiles/') . esc($currentUsername) . '.jpg' : base_url('assets/images/profile/user-1.jpg') ?>"
                                 alt="user" class="w-100 rounded-circle overflow-hidden" />
                         </div>
                         <!-- END User profile image -->
@@ -62,7 +64,7 @@ if (isset($user_info) && $user_info == null) {
                             <!-- Identity Dropdown Button -->
                             <a href="#" class="dropdown-toggle u-dropdown w-100 text-white d-block position-relative"
                                 id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false">
-                                <?= esc($user_info['name']) . "&nbsp;(" . esc($user_info['user_role']) . ")" ?? "Markarn Doe" ?>
+                                <?= esc($user_info['username'] ?? 'Markarn Doe') . "&nbsp;(" . esc($user_info['slug'] ?? '') . ")" ?>
                             </a>
                             <!-- END Identity Dropdown Button -->
                             <!-- Dropdown Menu Flip -->
@@ -109,7 +111,7 @@ if (isset($user_info) && $user_info == null) {
                         <!-- Home -->
                         <!-- ---------------------------------- -->
                         <!-- Administrator -->
-                        <?php if (esc($user_info['user_role']) == 'administrator'): ?>
+                        <?php if (($user_info['slug'] ?? '') == 'admin'): ?>
                             <!-- Group Name -->
                             <li class="nav-small-cap">
                                 <iconify-icon icon="solar:menu-dots-bold" class="nav-small-cap-icon fs-4"></iconify-icon>
@@ -134,19 +136,53 @@ if (isset($user_info) && $user_info == null) {
                                 <a class="sidebar-link waves-effect waves-dark sidebar-link"
                                     href="<?= base_url('admin/manage/user') ?>" aria-expanded="false">
                                     <iconify-icon icon="solar:user-outline"></iconify-icon>
-                                    <span class="hide-menu">Manajemen User</span>
+                                    <span class="hide-menu">User</span>
+                                </a>
+                            </li>
+                            <li class="sidebar-item">
+                                <a class="sidebar-link waves-effect waves-dark sidebar-link"
+                                    href="<?= base_url('admin/manage/locations') ?>"
+                                            aria-expanded="false">
+                                            <iconify-icon icon="fa7-solid:location-dot"></iconify-icon>
+                                            <span class="hide-menu">Lokasi</span>
+                                        </a>
+                                    </li>
+                                    <li class="sidebar-item">
+                                        <a class="sidebar-link waves-effect waves-dark sidebar-link" href="<?= base_url('admin/manage/items') ?>"
+                                            aria-expanded="false">
+                                            <iconify-icon icon="fa7-solid:box"></iconify-icon>
+                                            <span class="hide-menu">Item</span>
+                                        </a>
+                                    </li>
+                                    <li class="sidebar-item">
+                                        <a class="sidebar-link waves-effect waves-dark sidebar-link" href="<?= base_url('admin/manage/actions') ?>"
+                                            aria-expanded="false">
+                                            <iconify-icon icon="fa7-solid:list-numeric"></iconify-icon>
+                                            <span class="hide-menu">Aksi</span>
                                 </a>
                             </li>
                             <li class="sidebar-item">
                                 <a class="sidebar-link waves-effect waves-dark sidebar-link"
                                     href="<?= base_url('admin/manage/task') ?>" aria-expanded="false">
-                                    <iconify-icon icon="solar:home-2-outline"></iconify-icon>
-                                    <span class="hide-menu">Manajemen Tugas</span>
+                                    <iconify-icon icon="material-symbols:add-task-rounded"></iconify-icon>
+                                    <span class="hide-menu">Tugas</span>
+                                </a>
+                            </li>
+                            <li class="nav-small-cap">
+                                <iconify-icon icon="solar:menu-dots-bold" class="nav-small-cap-icon fs-4"></iconify-icon>
+                                <span class="hide-menu">LAPORAN</span>
+                            </li>
+                            <li class="sidebar-item">
+                                <a class="sidebar-link waves-effect waves-dark sidebar-link"
+                                    href="<?= base_url('admin/report') ?>"
+                                            aria-expanded="false">
+                                            <iconify-icon icon="solar:user-outline"></iconify-icon>
+                                            <span class="hide-menu">Laporan Pembersihan</span>
                                 </a>
                             </li>
                         <?php endif ?>
                         <!-- Verifikator -->
-                        <?php if ($user_info['user_role'] == 'verifikator'): ?>
+                        <?php if (($user_info['slug'] ?? '') == 'verifikator'): ?>
                             <li class="nav-small-cap">
                                 <iconify-icon icon="solar:menu-dots-bold" class="nav-small-cap-icon fs-4"></iconify-icon>
                                 <span class="hide-menu">TUGAS</span>
@@ -154,12 +190,20 @@ if (isset($user_info) && $user_info == null) {
                             <li class="sidebar-item">
                                 <a class="sidebar-link waves-effect waves-dark sidebar-link"
                                     href="<?= base_url(relativePath: 'verifikator'); ?>" aria-expanded="false"><iconify-icon
-                                        icon="solar:widget-outline"></iconify-icon><span hpp class="hide-menu">Dashboard</span></a>
+                                        icon="solar:widget-outline"></iconify-icon><span hpp class="hide-menu">Tugas Belum
+                                        Terverifikasi</span></a>
+                            </li>
+                            <li class="sidebar-item">
+                                <a class="sidebar-link waves-effect waves-dark sidebar-link"
+                                    href="<?= base_url(relativePath: 'verifikator/verified'); ?>"
+                                    aria-expanded="false"><iconify-icon
+                                        icon="solar:check-circle-outline"></iconify-icon><span hpp class="hide-menu">Tugas
+                                        Terverifikasi</span></a>
                             </li>
                         <?php endif ?>
                         <!-- END Verifikator -->
                         <!-- Petugas -->
-                        <?php if ($user_info['user_role'] == 'operator'): ?>
+                        <?php if (($user_info['slug'] ?? '') == 'operator'): ?>
                             <li class="nav-small-cap">
                                 <iconify-icon icon="solar:menu-dots-bold" class="nav-small-cap-icon fs-4"></iconify-icon>
                                 <span class="hide-menu">TUGAS</span>
@@ -874,10 +918,10 @@ if (isset($user_info) && $user_info == null) {
                                                             class="rounded-circle round-50" alt="" />
                                                         <div class="ms-3">
                                                             <h5 class="mb-1 fs-4">
-                                                                <?= esc($user_info['name']) ?? 'Markarn Doe' ?>
+                                                                <?= esc($user_info['username'] ?? 'Markarn Doe') ?>
                                                             </h5>
                                                             <p class="mb-0 fs-2 d-flex align-items-center">
-                                                                <?= esc($user_info['user_role']) ?>
+                                                                <?= esc($user_info['slug'] ?? '') ?>
                                                             </p>
                                                         </div>
                                                     </div>
@@ -1408,6 +1452,44 @@ if (isset($user_info) && $user_info == null) {
         function underDev() {
             toastr.warning("Masih dalam proses pengembangan", "Under Development", { timeOut: 2000, progressBar: true, closeButton: true, });
         }
+
+        // Refresh revision count badge for operator
+        function updateRevisionBadge() {
+            const userRole = document.querySelector('[data-user-role]')?.getAttribute('data-user-role') || null;
+
+            // Only fetch for operators
+            if (userRole === 'operator' || window.location.pathname.includes('/operator')) {
+                $.ajax({
+                    url: '<?= base_url('operator/get_revision_count') ?>',
+                type: 'GET',
+                dataType: 'json',
+                success: function (res) {
+                    if (res.status === 200) {
+                        const badge = document.querySelector('.sidebar-link[href*="operator/revisi"] .badge');
+                        if (res.count > 0) {
+                            if (badge) {
+                                badge.textContent = res.count;
+                            } else {
+                                const span = document.querySelector('.sidebar-link[href*="operator/revisi"] .hide-menu');
+                                if (span) {
+                                    const newBadge = document.createElement('span');
+                                    newBadge.className = 'badge bg-danger ms-1';
+                                    newBadge.textContent = res.count;
+                                    span.appendChild(newBadge);
+                                }
+                            }
+                        } else if (badge) {
+                            badge.remove();
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // Initial update and refresh every 30 seconds
+    updateRevisionBadge();
+    setInterval(updateRevisionBadge, 30000);
     </script>
     <?= $this->renderSection('script') ?>
 </body>

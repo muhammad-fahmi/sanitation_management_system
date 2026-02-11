@@ -12,16 +12,18 @@
                         <div class="d-flex align-items-center justify-content-center mb-2">
                             <div class=" d-flex align-items-center justify-content-center"
                                 style="width: 110px; height: 110px;">
-                                <div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
+                                    <?php $displayName = display_name($user_info); ?>
+                                    <?php $displayRole = display_role($user_info, 'Verifikator'); ?>
+                                    <div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
                                     style="width: 100px; height: 100px;">
-                                    <img src="<?= base_url('assets/profiles/') . $user_info['name'] . '.jpg' ?>" alt=""
+                                    <img src="<?= base_url('assets/profiles/') . esc($displayName) . '.jpg' ?>" alt=""
                                         class="w-100 h-100">
                                 </div>
                             </div>
                         </div>
                         <div class="text-center">
-                            <h5 class="fs-5 mb-0 fw-semibold"><?= $user_info['name'] ?></h5>
-                            <p class="mb-0 fs-4"><?= $user_info['user_role'] ?></p>
+                            <h5 class="fs-5 mb-0 fw-semibold"><?= esc($displayName) ?></h5>
+                            <p class="mb-0 fs-4"><?= esc($displayRole) ?></p>
                         </div>
                     </div>
                 </div>
@@ -78,11 +80,16 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
-                        <iconify-icon icon="fa7-solid:ban"></iconify-icon> Batal
+                    <button type="button" class="btn btn-danger d-flex align-items-center" data-bs-dismiss="modal">
+                        <iconify-icon icon="fa7-solid:ban" width="24" height="24" class="me-1"></iconify-icon>
+                        Batal
                     </button>
-                    <button type="button" class="btn btn-warning" id="btnRevise">
-                        <iconify-icon icon="fa7-solid:save"></iconify-icon> Revisi
+                    <button type="button" class="btn btn-warning text-white d-flex align-items-center" id="btnRevise">
+                        <iconify-icon icon="fa7-solid:save" width="24" height="24" class="me-1"></iconify-icon>
+                        <div>
+                            <span id="btnReviseText">Revisi</span>
+                        </div>
+
                     </button>
                 </div>
             </div>
@@ -123,53 +130,53 @@
             responsive: true,
             ajax: {
                 url: '<?= base_url('verifikator/get_datatable'); ?>',
-                    type: 'POST',
-                    data: function (d) {
-                        d.location_id = $('#filterLocation').val();
-                        return d;
+                type: 'POST',
+                data: function (d) {
+                    d.location_id = $('#filterLocation').val();
+                    return d;
+                }
+            },
+            columns: [
+                { data: 'no', orderable: false },
+                { data: 'date' },
+                { data: 'item_name' },
+                { data: 'action_name' },
+                { data: 'location_name' },
+                {
+                    data: 'status',
+                    orderable: false,
+                    render: function (data) {
+                        const status = (data || '').toLowerCase();
+                        switch (status) {
+                            case 'pending':
+                                return '<span class="badge bg-warning">Pending</span>';
+                            case 'verified':
+                                return '<span class="badge bg-success">Verified</span>';
+                            case 'selesai':
+                                return '<span class="badge bg-success">Verified</span>';
+                            case 'revised':
+                            case 'revisi':
+                                return '<span class="badge bg-info">Revisi</span>';
+                            case 'rejected':
+                                return '<span class="badge bg-danger">Rejected</span>';
+                            default:
+                                return '<span class="badge bg-secondary">' + (data || '-') + '</span>';
+                        }
                     }
                 },
-                columns: [
-                    { data: 'no', orderable: false },
-                    { data: 'date' },
-                    { data: 'item_name' },
-                    { data: 'action_name' },
-                    { data: 'location_name' },
-                    {
-                        data: 'status',
-                        orderable: false,
-                        render: function (data) {
-                            const status = (data || '').toLowerCase();
-                            switch (status) {
-                                case 'pending':
-                                    return '<span class="badge bg-warning">Pending</span>';
-                                case 'verified':
-                                    return '<span class="badge bg-success">Verified</span>';
-                                case 'selesai':
-                                    return '<span class="badge bg-success">Verified</span>';
-                                case 'revised':
-                                case 'revisi':
-                                    return '<span class="badge bg-info">Revisi</span>';
-                                case 'rejected':
-                                    return '<span class="badge bg-danger">Rejected</span>';
-                                default:
-                                    return '<span class="badge bg-secondary">' + (data || '-') + '</span>';
-                            }
+                {
+                    data: null,
+                    orderable: false,
+                    render: function (data, type, row) {
+                        const id = row.task_submission_id || row.id;
+                        if (!id) {
+                            return '-';
                         }
-                    },
-                    {
-                        data: null,
-                        orderable: false,
-                        render: function (data, type, row) {
-                            const id = row.task_submission_id || row.id;
-                            if (!id) {
-                                return '-';
-                            }
 
-                            const status = (row.status || '').toLowerCase();
+                        const status = (row.status || '').toLowerCase();
 
-                            if (status === 'pending') {
-                                return `
+                        if (status === 'pending') {
+                            return `
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-success btn-verify" data-id="${id}">
                                         <iconify-icon icon="solar:check-circle-bold"></iconify-icon> Verifikasi
@@ -179,10 +186,10 @@
                                     </button>
                                 </div>
                             `;
-                            }
+                        }
 
-                            if (status === 'revisi' || status === 'revised') {
-                                return `
+                        if (status === 'revisi' || status === 'revised') {
+                            return `
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-warning btn-edit" data-id="${id}">
                                         <iconify-icon icon="solar:pen-bold"></iconify-icon> Edit Revisi
@@ -243,7 +250,7 @@
                     $('#reviseMessage').val(message);
                     $('#reviseModal').data('task-id', id);
                     $('#reviseModalLabel').text(message ? 'Edit Revisi Tugas' : 'Revisi Tugas');
-                    $('#btnRevise').text(message ? 'Update' : 'Revisi');
+                    $('#btnReviseText').text(message ? 'Update' : 'Revisi');
                     $('#reviseModal').modal('show');
                 },
                 error: function () {
@@ -370,9 +377,9 @@
 
         // Populate locations dropdown from table data
         let locationsAdded = new Set();
-        taskTable.on('draw.dt', function() {
+        taskTable.on('draw.dt', function () {
             const rows = taskTable.rows({ page: 'current' }).data();
-            rows.each(function(row) {
+            rows.each(function (row) {
                 if (row.location_name && !locationsAdded.has(row.location_id)) {
                     $('#filterLocation').append(`<option value="${row.location_id}">${row.location_name}</option>`);
                     locationsAdded.add(row.location_id);

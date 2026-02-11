@@ -12,13 +12,14 @@
                         <div class="d-flex align-items-center justify-content-center mb-2">
                             <div class="d-flex align-items-center justify-content-center" style="width: 110px; height: 110px;">
                                 <div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden" style="width: 100px; height: 100px;">
-                                    <img src="<?= base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' ?>" class="w-100 h-100"
-                                        alt="<?= esc($user_info['name']) ?>">
+                                    <img src="<?= base_url('assets/profiles/') . esc(display_name($user_info)) . '.jpg' ?>" class="w-100 h-100"
+                                        alt="<?= esc(display_name($user_info)) ?>">
                                 </div>
                             </div>
                         </div>
                         <div class="text-center">
-                            <h4 class="fs-5 mb-1 fw-semibold text-uppercase"><?= esc($user_info['name']) ?> (<?= esc($user_info['user_role']) ?>)
+                            <h4 class="fs-5 mb-1 fw-semibold text-uppercase"><?= esc(display_name($user_info)) ?>
+                                (<?= esc(display_role($user_info)) ?>)
                             </h4>
                         </div>
                     </div>
@@ -41,10 +42,12 @@
             <?php else: ?>
                 <div class="row justify-content-center" id="rooms_container">
                     <?php foreach ($rooms as $room): ?>
-                                <div class='col-sm-12 col-md-4 col-lg-6 p-2 room_button' data-room-name='<?= strtolower($room['location_name']) ?>'>
+                        <?php $roomName = strtolower(room_name($room)); ?>
+                        <?php $roomId = room_id($room); ?>
+                        <div class='col-sm-12 col-md-4 col-lg-6 p-2 room_button' data-room-name='<?= esc($roomName) ?>'>
                             <button class="btn btn-primary text-bg-primary p-3 text-uppercase position-relative"
-                                style="width:100%;height:calc(100vh / 10);" onclick="visitRoom(<?= $room['location_id']; ?>)">
-                                <?= esc($room['location_name']) ?>
+                                style="width:100%;height:calc(100vh / 10);" onclick="visitRoom(<?= esc($roomId); ?>)">
+                                <?= esc(room_name($room) ?: 'Unknown') ?>
                                 <?php if (!empty($room['has_revision'])): ?>
                                     <span
                                         class="position-absolute top-0 start-100 translate-middle badge bg-warning text-dark rounded-pill">!</span>

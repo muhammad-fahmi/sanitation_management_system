@@ -1,5 +1,7 @@
 # CodeIgniter 4 Framework
 
+[![PHP Unit Tests](https://github.com/muhammad-fahmi/bionic-backend/actions/workflows/phpunit.yml/badge.svg?branch=master)](https://github.com/muhammad-fahmi/bionic-backend/actions/workflows/phpunit.yml)
+
 ## What is CodeIgniter?
 
 CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.

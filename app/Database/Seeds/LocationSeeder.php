@@ -13,7 +13,7 @@ class LocationSeeder extends Seeder
 
         try {
             // Truncate the table
-            $this->db->table('m_locations')->truncate();
+            $this->db->table('rooms')->truncate();
 
             // Read data from Excel
             $excelPath = ROOTPATH . 'datasource.xlsx';
@@ -23,7 +23,17 @@ class LocationSeeder extends Seeder
 
             $reader = IOFactory::createReader('Xlsx');
             $spreadsheet = $reader->load($excelPath);
-            $sheet = $spreadsheet->getSheetByName('m_locations');
+            // Support both legacy sheet name and current
+            $sheetNames = ['rooms', 'm_locations', 'locations'];
+            $sheet = null;
+            foreach ($sheetNames as $s) {
+                $sheet = $spreadsheet->getSheetByName($s);
+                if ($sheet)
+                    break;
+            }
+            if (!$sheet) {
+                throw new \Exception("Excel sheet for locations not found (looked for: " . implode(', ', $sheetNames) . ")");
+            }
             $data = $sheet->toArray();
 
             $locations = [];
@@ -38,13 +48,14 @@ class LocationSeeder extends Seeder
                 }
 
                 $locations[] = [
-                    'location_name' => trim($row[1]),
+                    'name' => trim($row[1]),
+                    'created_at' => date('Y-m-d H:i:s'),
                 ];
             }
 
             // Insert locations
             if (!empty($locations)) {
-                $this->db->table('m_locations')->insertBatch($locations);
+                $this->db->table('rooms')->insertBatch($locations);
                 echo "✓ Seeded " . count($locations) . " locations\n";
             }
         } catch (\Exception $e) {

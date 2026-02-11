@@ -113,15 +113,27 @@ Login Page
     }
 
     .btn-sign-in:hover {
-        background: #f5f5f5;
-        border-color: #0d47a1;
-        color: #0d47a1;
+        background: #1976d2;
+        border-color: #1565c0;
+        color: white;
         transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3);
+        box-shadow: 0 8px 25px rgba(25, 118, 210, 0.4);
     }
 
     .btn-sign-in:active {
+        background: #1565c0;
+        border-color: #0d47a1;
+        color: white;
         transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
+    }
+
+    .btn-sign-in:focus {
+        outline: none;
+        background: #1976d2;
+        border-color: #1565c0;
+        color: white;
+        box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.5);
     }
 
     .alert-danger {
@@ -219,7 +231,7 @@ Login Page
 <div class="card-body login-container">
     <!-- Logo Section -->
     <div class="logo-section">
-        <a href="<?= base_url('/auth/login'); ?>" class="text-decoration-none">
+        <a href="<?= base_url('auth/login'); ?>" class="text-decoration-none">
             <div class="logo-icon mb-3">
                 <img src="<?= base_url("logo_dark.png") ?>" alt="Bionic Natura Logo">
             </div>

@@ -9,42 +9,24 @@ class Users extends Migration
     public function up()
     {
         $this->forge->addField([
-            'user_id' => [
-                'type' => 'int',
-                'constraint' => 5,
-                'unsigned' => true,
-                'auto_increment' => true,
-            ],
-            'name' => [
-                'type' => 'varchar',
-                'constraint' => 50,
-            ],
-            'is_active' => [
-                'type' => 'int',
-                'constraint' => 2,
-                'default' => 1
-            ],
-            'username' => [
-                'type' => 'varchar',
-                'constraint' => 100
-            ],
-            'password' => [
-                'type' => 'longtext'
-            ],
-            'user_role' => [
-                'type' => 'varchar',
-                'constraint' => 20,
-                'null' => true,
-                'default' => null
-            ]
+            'id' => ['type' => 'int', 'unsigned' => true, 'auto_increment' => true],
+            'username' => ['type' => 'varchar', 'constraint' => 100],
+            'email' => ['type' => 'varchar', 'constraint' => 255],
+            'password' => ['type' => 'varchar', 'constraint' => 255],
+            'is_active' => ['type' => 'int', 'constraint' => 2, 'default' => 1],
+            'last_login_at' => ['type' => 'datetime', 'null' => true],
+            'created_at' => ['type' => 'datetime', 'null' => true],
+            'updated_at' => ['type' => 'datetime', 'null' => true],
+            'deleted_at' => ['type' => 'datetime', 'null' => true],
         ]);
-        $this->forge->addKey('user_id', true);
+        $this->forge->addPrimaryKey('id');
         $this->forge->addUniqueKey('username');
-        $this->forge->createTable('m_users', true);
+        $this->forge->addUniqueKey('email');
+        $this->forge->createTable('users', true);
     }
 
     public function down()
     {
-        $this->forge->dropTable('m_users', true);
+        $this->forge->dropTable('users', true);
     }
 }

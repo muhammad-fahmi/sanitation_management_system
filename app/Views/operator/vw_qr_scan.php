@@ -5,8 +5,13 @@
 	<!-- User Profile Card -->
 	<div class="card overflow-hidden">
 		<div class="card-body p-0">
+		<?php // Use helpers for display name/role/location variables to keep views concise ?>
+		<?php $displayName = display_name($user_info); ?>
+		<?php $displayRole = display_role($user_info); ?>
+		<?php $locationName = room_name($locations); ?>
+		<?php $locationId = room_id($locations); ?>
 			<img src="<?= base_url('assets/images/backgrounds/profilebg.jpg'); ?>" class="img-fluid"
-				alt="Profile Background">
+				alt="Profile Background" />
 			<div class="row align-items-center">
 				<div class="col-lg-12 mt-n3 text-center">
 					<div class="mt-n5">
@@ -15,14 +20,14 @@
 								style="width: 110px; height: 110px;">
 								<div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
 									style="width: 100px; height: 100px;">
-									<img src="<?= base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' ?>"
-										class="w-100 h-100" alt="<?= esc($user_info['name']) ?>">
+									<img src="<?= base_url('assets/profiles/') . esc($displayName) . '.jpg' ?>" class="w-100 h-100"
+										alt="<?= esc($displayName) ?>" />
 								</div>
 							</div>
 						</div>
 						<div class="text-center">
-							<h5 class="fs-5 mb-0 fw-semibold text-capitalize"><?= esc($user_info['name']) ?></h5>
-							<p class="mb-0 fs-4"><?= esc($user_info['user_role']) ?></p>
+							<h5 class="fs-5 mb-0 fw-semibold text-capitalize"><?= esc($displayName) ?></h5>
+							<p class="mb-0 fs-4"><?= esc($displayRole) ?></p>
 						</div>
 					</div>
 				</div>
@@ -32,7 +37,7 @@
 
 	<div class="card overflow-hidden p-3" id="camera_container">
 		<h3 class="card-title text-center text-uppercase fw-bold d-flex align-items-center justify-content-center mb-3">
-			<?= esc($locations['location_name']) ?>
+			<?= esc($locationName) ?>
 		</h3>
 		<div class="card-footer d-flex">
 			<a class="btn btn-primary d-flex align-items-center px-1 py-2" href="<?= base_url('operator') ?>">
@@ -50,29 +55,55 @@
 		</div>
 	</div>
 
+	<?php
+	// If the room has revision items, only display those items for submission
+	$revision_mode = !empty($revision_items);
+	$display_items = $items;
+	if ($revision_mode) {
+		$display_items = array_values(array_filter($items, function ($it) use ($revision_items) {
+			return in_array($it['item_id'] ?? $it['id'], $revision_items);
+		}));
+	}
+
+	// robust item id list (supports 'item_id' or 'id')
+	$itemIdsPhp = array_column($display_items ?? $items, 'item_id');
+	if (empty($itemIdsPhp)) {
+		$itemIdsPhp = array_column($display_items ?? $items, 'id');
+	}
+	?>
+
 	<div class="card d-none" id="card_result">
 		<div class="card-header bg-light">
 			<h5 class="mb-0">📋 Pilih Item yang Sudah Dikerjakan</h5>
 		</div>
 		<div class="card-body w-100">
-			<?php foreach ($items as $item): ?>
-				<button class="btn btn-outline-primary btn-sm w-100 my-1 text-start position-relative"
-					id="item_<?= $item['item_id'] ?>"
-					onclick="openActionModal('<?= $item['item_id'] ?>', '<?= esc($item['item_name']) ?>')">
-					<i class="fas fa-check-square"></i> <?= esc($item['item_name']) ?>
-					<?php if (in_array($item['item_id'], $revision_items ?? [])): ?>
-						<span
-							class="position-absolute top-0 start-100 translate-middle badge bg-warning text-dark rounded-pill">!</span>
+			<?php if ($revision_mode): ?>
+				<div class="alert alert-warning text-center mb-3">Ruangan ini memiliki revisi. Hanya item yang ditandai untuk revisi
+					yang dapat disimpan.</div>
+			<?php endif; ?>
+
+			<?php if (empty($display_items)): ?>
+				<div class="alert alert-info text-center">Tidak ada item revisi untuk ruangan ini.</div>
+			<?php else: ?>
+				<?php foreach ($display_items as $item): ?>
+				<?php $itemId = $item['item_id'] ?? $item['id'] ?? '';
+				$itemName = $item['item_name'] ?? $item['name'] ?? 'Item'; ?>
+				<button class="btn btn-outline-primary btn-sm w-100 my-1 text-start position-relative" id="item_<?= esc($itemId) ?>"
+					onclick="openActionModal('<?= esc($itemId) ?>', '<?= esc($itemName) ?>')">
+					<i class="fas fa-check-square"></i> <?= esc($itemName) ?>
+					<?php if (in_array($itemId, $revision_items ?? [])): ?>
+						<span class="position-absolute top-0 start-100 translate-middle badge bg-warning text-dark rounded-pill">!</span>
 					<?php endif; ?>
 				</button>
-			<?php endforeach; ?>
+				<?php endforeach; ?>
+			<?php endif; ?>
 		</div>
 		<div class="card-footer d-flex justify-content-end gap-2">
 			<button class="btn btn-danger d-flex align-items-center px-3 py-2" onclick="cancelData()">
 				<iconify-icon icon="fa7-solid:ban" width="20" height="20" class="me-1"></iconify-icon>
 				Batal
 			</button>
-			<button class="btn btn-success d-flex align-items-center px-3 py-2" onclick="submitData()">
+			<button id="btn_submit_data" class="btn btn-success d-flex align-items-center px-3 py-2" onclick="submitData()">
 				<iconify-icon icon="fa7-solid:save" width="20" height="20" class="me-1"></iconify-icon>
 				Simpan
 			</button>
@@ -85,12 +116,15 @@
 <script>
 	// Global variables
 	const actionData = JSON.parse(localStorage.getItem('action_data')) || {};
-	const locationId = '<?= $locations['location_id'] ?>';
-	const locationName = '<?= esc($locations['location_name']) ?>';
-	const userId = '<?= $user_info['user_id'] ?>';
+	const locationId = '<?= $locationId ?>';
+		const locationName = '<?= esc($locationName) ?>';
+		const userId = '<?= ($user_info['user_id'] ?? '') ?>';
 	const csrfToken = '<?= csrf_token() ?>';
 	const csrfHash = '<?= csrf_hash() ?>';
-	const itemIds = <?= json_encode(array_column($items, 'item_id')) ?>;
+	const revisionMode = <?= !empty($revision_items) ? 'true' : 'false' ?>;
+		const revisionItemIds = <?= json_encode($revision_items ?? []) ?>;
+		const itemIds = <?= json_encode($itemIdsPhp ?? []) ?>;
+		const displayedItemIds = itemIds.map(String);
 	const rotateCameraButton = document.getElementById('rotate_camera');
 	const stopCameraButton = document.getElementById('stop_camera');
 	const startCameraButton = document.getElementById('start_camera');
@@ -107,6 +141,25 @@
 
 		startCamera('environment');
 		updateItemStatus();
+
+		// If there are no displayed items (e.g., revision room with no revision items), disable submit and inform user
+		if (itemIds.length === 0) {
+			const btn = document.getElementById('btn_submit_data');
+			if (btn) btn.disabled = true;
+			if (revisionMode) {
+				toastr.info('Tidak ada item revisi untuk ruangan ini. Tidak ada yang dapat disimpan.', 'Info');
+			}
+		}
+
+		// Clean any stored action_data for items not currently displayed to avoid accidental submissions
+		let stored = JSON.parse(localStorage.getItem('action_data')) || {};
+		if (stored[locationId]) {
+			for (let it in stored[locationId]) {
+				if (!displayedItemIds.includes(it)) delete stored[locationId][it];
+			}
+			if (Object.keys(stored[locationId] || {}).length === 0) delete stored[locationId];
+			localStorage.setItem('action_data', JSON.stringify(stored));
+		}
 	});
 
 	// Clear action_data when page is restored from bfcache (back/forward)
@@ -155,10 +208,7 @@
 	});
 
 
-
-	/**
-	 * Start QR camera and scan location
-	 */
+		/**	  * Start QR camera and scan location	  */
 	function startCamera(facing_mode) {
 		qrScanner = new Html5Qrcode('reader');
 		Html5Qrcode.getCameras()
@@ -182,10 +232,7 @@
 				toastr.error('Gagal mengakses kamera: ' + err, 'Error');
 			});
 	}
-
-	/**
-	 * Handle QR code scan result
-	 */
+		/**	  * Handle QR code scan result	  */
 	function onQrCodeScanned(decodedText) {
 		try {
 			const result = JSON.parse(decodedText);
@@ -204,17 +251,11 @@
 			toastr.error('Format QR tidak valid', 'Error');
 		}
 	}
-
-	/**
-	 * Handle scan errors (usually just scanning failures, not QR codes)
-	 */
+		/**	  * Handle scan errors (usually just scanning failures, not QR codes)	  */
 	function onScanError(error) {
 		// Silently ignore non-QR-code scan attempts
 	}
-
-	/**
-	 * Open modal to select actions for an item
-	 */
+		/**	  * Open modal to select actions for an item	  */
 	function openActionModal(itemId, itemName) {
 		$.ajax({
 			url: '<?= base_url('operator/modal'); ?>',
@@ -240,10 +281,7 @@
 			}
 		});
 	}
-
-	/**
-	 * Cancel and go back to dashboard
-	 */
+		/**	  * Cancel and go back to dashboard	  */
 	function cancelData() {
 		if (confirm('Apakah Anda yakin ingin membatalkan? Data yang tidak disimpan akan hilang.')) {
 			localStorage.removeItem('action_data');
@@ -251,10 +289,7 @@
 			window.location.href = '<?= base_url('operator'); ?>';
 		}
 	}
-
-	/**
-	 * Submit all selected actions
-	 */
+		/**	  * Submit all selected actions	  */
 	function submitData() {
 		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};
 
@@ -303,16 +338,15 @@
 			}
 		});
 	}
-
-	/**
-	 * Build submissions array from action data
-	 */
+		/**	  * Build submissions array from action data	  */
 	function buildSubmissions(currentActionData) {
 		const submissions = [];
 		const date = new Date().toISOString().split('T')[0];
 
 		for (let loc in currentActionData) {
 			for (let item in currentActionData[loc]) {
+				// Ensure only items currently displayed (e.g., revision-only mode) are submitted
+				if (!displayedItemIds.includes(item)) continue;
 				for (let act in currentActionData[loc][item]) {
 					submissions.push({
 						date: date,
@@ -331,10 +365,7 @@
 
 		return submissions;
 	}
-
-	/**
-	 * Update visual status of items (strikethrough when completed)
-	 */
+		/**	  * Update visual status of items (strikethrough when completed)	  */
 	function updateItemStatus() {
 		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};
 
@@ -350,10 +381,7 @@
 			}
 		});
 	}
-
-	/**
-	 * Check if all items have been completed
-	 */
+		/**	  * Check if all items have been completed	  */
 	function isAllItemsCompleted() {
 		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};
 

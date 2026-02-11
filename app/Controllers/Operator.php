@@ -5,9 +5,10 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use App\Models\ActionModel;
 use App\Models\ItemModel;
-use App\Models\LocationModel;
+use App\Models\RoomModel;
 use App\Models\TaskSubmissionModel;
-use App\Models\TaskSubmissionDetailModel;
+use App\Models\TaskSubmissionItemsModel;
+use App\Models\TaskSubmissionActionsModel;
 
 class Operator extends BaseController
 {
@@ -16,22 +17,25 @@ class Operator extends BaseController
      */
     public function index()
     {
-        $location = new LocationModel();
+        $location = new RoomModel();
         $taskSubmission = new TaskSubmissionModel();
         $rooms = $location->getAllRoom();
         $today = date('Y-m-d');
 
         // Preload submission and revision locations for today to avoid per-room queries
-        $submittedLocationIds = $taskSubmission->select('location_id')
-            ->where('date', $today)
-            ->groupBy('location_id')
-            ->findColumn('location_id') ?? [];
+        $submittedLocationIds = $taskSubmission->select('room_id')
+            ->where('DATE(date)', $today)
+            ->groupBy('room_id')
+            ->findColumn('room_id') ?? [];
 
-        $revisionLocationIds = $taskSubmission->select('location_id')
-            ->where('date', $today)
-            ->whereIn('status', ['revisi', 'revised'])
-            ->groupBy('location_id')
-            ->findColumn('location_id') ?? [];
+        $revisionLocationIds = $taskSubmission->select('room_id')
+            ->where('DATE(date)', $today)
+            ->whereIn('status', ['revision_requested', 'rejected'])
+            ->groupBy('room_id')
+            ->findColumn('room_id') ?? [];
+
+        // Store revision room count in session for use in layout
+        session()->set('revision_room_count', count($revisionLocationIds));
 
         // Mark rooms that already have submissions today and those with revisions
         foreach ($rooms as &$room) {
@@ -57,7 +61,7 @@ class Operator extends BaseController
         }
 
         $itemModel = new ItemModel();
-        $locationModel = new LocationModel();
+        $locationModel = new RoomModel();
         $taskSubmissionModel = new TaskSubmissionModel();
         $actionModel = new ActionModel();
 
@@ -68,16 +72,24 @@ class Operator extends BaseController
             return redirect()->to('operator')->with('error', 'Lokasi tidak ditemukan');
         }
 
+        // Ensure legacy field for views
+        if (!isset($locations['location_name'])) {
+            $locations['location_name'] = $locations['name'] ?? null;
+            $locations['location_id'] = $locations['id'] ?? null;
+        }
+
         $today = date('Y-m-d');
         $submissions = $taskSubmissionModel->getSubmissionsWithDetails($location_id, $today);
 
-        // Fetch items with revision status (revisi/revised)
-        $revisionItemIds = $taskSubmissionModel->builder('r_task_submission AS rts')
-            ->select('rts.item_id')
-            ->where('rts.location_id', $location_id)
-            ->where('rts.date', $today)
-            ->whereIn('rts.status', ['revisi', 'revised'])
-            ->groupBy('rts.item_id')
+        // Fetch items with revision status (revision_requested/rejected)
+        $db = \Config\Database::connect();
+        $revisionItemIds = $db->table('task_submissions AS ts')
+            ->select('tsi.item_id')
+            ->join('task_submission_items AS tsi', 'tsi.task_submission_id = ts.id', 'left')
+            ->where('ts.room_id', $location_id)
+            ->where('DATE(ts.date)', $today)
+            ->whereIn('ts.status', ['revision_requested', 'rejected'])
+            ->groupBy('tsi.item_id')
             ->get()
             ->getResultArray();
         $revisionItemIdList = array_column($revisionItemIds, 'item_id');
@@ -149,7 +161,7 @@ class Operator extends BaseController
         }
 
         $taskSubmissionModel = new TaskSubmissionModel();
-        $taskSubmissionDetailModel = new TaskSubmissionDetailModel();
+        $taskSubmissionDetailModel = new TaskSubmissionActionsModel();
 
         if ($submissions_json) {
             $submissions = json_decode($submissions_json, true);
@@ -161,15 +173,19 @@ class Operator extends BaseController
             $location_id = $submissions[0]['location_id'];
             $date = $submissions[0]['date'];
 
-            // Fetch existing submissions for this location/date
-            $existing = $taskSubmissionModel->where('location_id', $location_id)
-                ->where('date', $date)
-                ->findAll();
+            // Fetch existing submissions for this location/date (join items to find per-item existing records)
+            $db = \Config\Database::connect();
+            $existingRows = $db->table('task_submissions AS ts')
+                ->select('tsi.item_id, tsi.id AS task_submission_item_id, ts.id AS task_submission_id, ts.status, tsi.cleaning_frequency')
+                ->join('task_submission_items AS tsi', 'tsi.task_submission_id = ts.id', 'left')
+                ->where('ts.room_id', $location_id)
+                ->where('DATE(ts.date)', $date)
+                ->get()
+                ->getResultArray();
 
             $existingTasksByItem = [];
-            foreach ($existing as $ex) {
-                $itemId = (int) $ex['item_id'];
-                $existingTasksByItem[$itemId] = $ex;
+            foreach ($existingRows as $ex) {
+                $existingTasksByItem[(int) $ex['item_id']] = $ex;
             }
 
             // Group new submissions by item
@@ -192,79 +208,53 @@ class Operator extends BaseController
                 }
             }
 
-            // Process submissions: update existing or create new
+            // Process submissions: update existing per-item records or create new submissions + items + actions
             foreach ($grouped as $itemId => $payload) {
-
                 if (isset($existingTasksByItem[$itemId])) {
-                    // Update existing task submission
+                    // Update existing task item and parent submission
                     $existingTask = $existingTasksByItem[$itemId];
                     $taskId = $existingTask['task_submission_id'];
+                    $taskItemId = $existingTask['task_submission_item_id'];
 
-                    // Update status: if revisi/revised, change to pending; otherwise keep verified
+                    // If status was revision requested or rejected, move back to pending_review
                     $currentStatus = $existingTask['status'] ?? null;
-                    $newStatus = in_array($currentStatus, ['revisi', 'revised'], true) ? 'pending' : 'verified';
+                    $newStatus = in_array($currentStatus, ['revision_requested', 'rejected'], true) ? 'pending_review' : $currentStatus;
 
-                    // Increment time_cleaned by 1 on resubmission
-                    $currentTimeCleaned = (int) ($existingTask['time_cleaned'] ?? 0);
-                    $newTimeCleaned = $currentTimeCleaned + 1;
+                    if ($newStatus !== $currentStatus) {
+                        $taskSubmissionModel->update($taskId, ['status' => $newStatus, 'verified_by' => null, 'verified_at' => null]);
+                    }
 
-                    // Update task submission FIRST (preserve revision_message, clear verified metadata)
-                    $updateData = [
-                        'time_cleaned' => $newTimeCleaned,
-                        'status' => $newStatus,
-                        'verified_by' => null,
-                        'verified_at' => null
-                    ];
-
-                    $taskSubmissionModel->update($taskId, $updateData);
-
-                    // Increment quantity for existing details, insert new ones if action is new
-                    $existingActionIds = $taskSubmissionDetailModel->where('task_submission_id', $taskId)
-                        ->findColumn('action_id') ?? [];
-
+                    // For each action, increment repetitions if exists or insert new action
                     foreach ($payload['actions'] as $actionId) {
-                        $existingDetail = $taskSubmissionDetailModel->where('task_submission_id', $taskId)
+                        $existingDetail = $taskSubmissionDetailModel->where('task_submission_item_id', $taskItemId)
                             ->where('action_id', $actionId)
                             ->first();
 
                         if ($existingDetail) {
-                            // Increment quantity
-                            $newQuantity = (int) ($existingDetail['quantity'] ?? 1) + 1;
-                            $taskSubmissionDetailModel->update($existingDetail['task_submission_detail_id'], [
-                                'quantity' => $newQuantity
-                            ]);
+                            $newReps = (int) ($existingDetail['repetitions'] ?? 1) + 1;
+                            $db->table('task_submission_actions')->where('id', $existingDetail['id'])->update(['repetitions' => $newReps]);
                         } else {
-                            // Insert new detail
-                            $taskSubmissionDetailModel->insert([
-                                'task_submission_id' => $taskId,
-                                'action_id' => $actionId,
-                                'quantity' => 1
-                            ]);
+                            $db->table('task_submission_actions')->insert(['task_submission_item_id' => $taskItemId, 'action_id' => $actionId, 'repetitions' => 1]);
                         }
                     }
                 } else {
-                    // Create new task submission
+                    // Create a new parent task submission for this room/date
                     $data = [
                         'date' => $payload['date'],
-                        'location_id' => $payload['location_id'],
-                        'item_id' => $payload['item_id'],
-                        'time_cleaned' => 1,
-                        'revision_message' => null,
-                        'status' => 'pending',
-                        'submitted_by' => $payload['submitted_by'],
-                        'verified_by' => null,
-                        'verified_at' => null
+                        'room_id' => $payload['location_id'],
+                        'status' => 'pending_review',
+                        'submitted_by' => $payload['submitted_by']
                     ];
 
                     $taskId = $taskSubmissionModel->insert($data);
 
-                    // Insert new details with quantity = 1
+                    // Insert task_submission_item
+                    $db->table('task_submission_items')->insert(['task_submission_id' => $taskId, 'item_id' => $payload['item_id'], 'cleaning_frequency' => 1]);
+                    $taskItemId = $db->insertID();
+
+                    // Insert actions under that item
                     foreach ($payload['actions'] as $actionId) {
-                        $taskSubmissionDetailModel->insert([
-                            'task_submission_id' => $taskId,
-                            'action_id' => $actionId,
-                            'quantity' => 1
-                        ]);
+                        $db->table('task_submission_actions')->insert(['task_submission_item_id' => $taskItemId, 'action_id' => $actionId, 'repetitions' => 1]);
                     }
                 }
             }
@@ -296,7 +286,7 @@ class Operator extends BaseController
     }
 
     /**
-     * Cancel task submission
+     * Cancel a recorded action (delete action -> possibly delete parent item and submission if empty)
      */
     public function cancel_submission($action_id)
     {
@@ -304,16 +294,45 @@ class Operator extends BaseController
             return;
         }
 
-        $taskSubmissionDetailModel = new TaskSubmissionDetailModel();
-        $detail = $taskSubmissionDetailModel->where('action_id', $action_id)->first();
+        $taskSubmissionActionsModel = new TaskSubmissionActionsModel();
+        $taskSubmissionItemsModel = new TaskSubmissionItemsModel();
+        $taskSubmissionModel = new TaskSubmissionModel();
 
-        if (!$detail) {
+        // Try to find by primary id first
+        $action = $taskSubmissionActionsModel->find($action_id);
+        // Fallback: maybe caller passed the action_id (domain action) instead of record id
+        if (!$action) {
+            $action = $taskSubmissionActionsModel->where('action_id', $action_id)->first();
+        }
+
+        if (!$action) {
             return;
         }
 
-        $taskSubmissionModel = new TaskSubmissionModel();
-        $taskSubmissionDetailModel->delete($detail['task_submission_detail_id']);
-        $taskSubmissionModel->delete($detail['task_submission_id']);
+        $taskItemId = $action['task_submission_item_id'];
+        $taskItem = $taskSubmissionItemsModel->find($taskItemId);
+        if (!$taskItem) {
+            // delete the action if orphaned
+            $taskSubmissionActionsModel->delete($action['id']);
+            return;
+        }
+
+        $taskSubmissionId = $taskItem['task_submission_id'];
+
+        // delete the action record
+        $taskSubmissionActionsModel->delete($action['id']);
+
+        // if no more actions for the item, delete the item
+        $remainingActions = $taskSubmissionActionsModel->where('task_submission_item_id', $taskItemId)->countAllResults();
+        if ($remainingActions === 0) {
+            $taskSubmissionItemsModel->delete($taskItemId);
+
+            // if no more items for the submission, delete the submission
+            $remainingItems = $taskSubmissionItemsModel->where('task_submission_id', $taskSubmissionId)->countAllResults();
+            if ($remainingItems === 0) {
+                $taskSubmissionModel->delete($taskSubmissionId);
+            }
+        }
     }
 
     /**
@@ -325,31 +344,35 @@ class Operator extends BaseController
 
         // Get submissions that need revision with optimized query
         $db = \Config\Database::connect();
-        $revisedSubmissions = $db->table('r_task_submission AS rts')
+        $revisedSubmissions = $db->table('task_submissions AS ts')
             ->select('
-                rts.task_submission_id,
-                rts.date,
-                rts.location_id,
-                rts.item_id,
-                rts.revision_message,
-                rts.status,
-                rts.submitted_by,
-                ml.location_name,
-                mi.item_name,
+                ts.id AS task_submission_id,
+                ts.date,
+                ts.room_id AS location_id,
+                tsi.item_id,
+                ts.revision_message,
+                ts.status,
+                ts.submitted_by,
+                rm.name AS location_name,
+                mi.name AS item_name,
                 GROUP_CONCAT(DISTINCT ma.action_name ORDER BY ma.action_name SEPARATOR ", ") AS action_names
             ')
-            ->join('r_task_submission_detail AS rtsd', 'rts.task_submission_id = rtsd.task_submission_id')
-            ->join('m_actions AS ma', 'ma.action_id = rtsd.action_id', 'left')
-            ->join('m_locations AS ml', 'ml.location_id = rts.location_id', 'left')
-            ->join('m_items AS mi', 'mi.item_id = rts.item_id', 'left')
-            ->whereIn('rts.status', ['revisi', 'revised'])
-            ->groupBy('rts.task_submission_id, rts.date, rts.location_id, rts.item_id, rts.revision_message, rts.status, rts.submitted_by, ml.location_name, mi.item_name')
-            ->orderBy('rts.date', 'DESC')
+            ->join('task_submission_items AS tsi', 'tsi.task_submission_id = ts.id')
+            ->join('task_submission_actions AS tsa', 'tsa.task_submission_item_id = tsi.id', 'left')
+            ->join('m_actions AS ma', 'ma.action_id = tsa.action_id', 'left')
+            ->join('rooms AS rm', 'rm.id = ts.room_id', 'left')
+            ->join('items AS mi', 'mi.id = tsi.item_id', 'left')
+            ->whereIn('ts.status', ['revision_requested', 'rejected'])
+            ->groupBy('ts.id, ts.date, ts.room_id, tsi.item_id, ts.revision_message, ts.status, ts.submitted_by, rm.location_name, mi.item_name')
+            ->orderBy('ts.date', 'DESC')
             ->get()
             ->getResultArray();
 
         // Count unique locations needing revision
         $revisionRoomCount = count(array_unique(array_column($revisedSubmissions, 'location_id')));
+
+        // Store revision count in session for use in layout
+        session()->set('revision_room_count', $revisionRoomCount);
 
         return view('operator/vw_revisi', [
             'page_title' => 'Revisi Tugas',
@@ -357,8 +380,32 @@ class Operator extends BaseController
             'submissions' => $revisedSubmissions,
             'items' => (new ItemModel())->findAll(),
             'actions' => (new ActionModel())->findAll(),
-            'locations' => (new LocationModel())->findAll(),
+            'locations' => (new RoomModel())->findAll(),
             'revision_room_count' => $revisionRoomCount
+        ]);
+    }
+
+    /**
+     * Get revision room count via AJAX for badge update
+     */
+    public function get_revision_count()
+    {
+        $taskSubmissionModel = new TaskSubmissionModel();
+
+        // Get count of unique rooms with revisions
+        $revisions = $taskSubmissionModel->select('room_id')
+            ->whereIn('status', ['revision_requested', 'rejected'])
+            ->groupBy('room_id')
+            ->findAll();
+
+        $revisionRoomCount = count($revisions);
+
+        // Update session
+        session()->set('revision_room_count', $revisionRoomCount);
+
+        return $this->response->setJSON([
+            'status' => 200,
+            'count' => $revisionRoomCount
         ]);
     }
 }

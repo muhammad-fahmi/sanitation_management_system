@@ -13,7 +13,7 @@ class ActionSeeder extends Seeder
 
         try {
             // Truncate the table
-            $this->db->table('m_actions')->truncate();
+            $this->db->table('actions')->truncate();
 
             // Read data from Excel
             $excelPath = ROOTPATH . 'datasource.xlsx';
@@ -39,13 +39,15 @@ class ActionSeeder extends Seeder
 
                 $actions[] = [
                     'item_id' => (int) $row[2],
-                    'action_name' => trim($row[3]),
+                    'name' => trim($row[3]),
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ];
             }
 
             // Insert actions
             if (!empty($actions)) {
-                $this->db->table('m_actions')->insertBatch($actions);
+                $this->db->table('actions')->insertBatch($actions);
                 echo "✓ Seeded " . count($actions) . " actions\n";
             }
         } catch (\Exception $e) {

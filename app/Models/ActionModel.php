@@ -3,64 +3,64 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
+use Tatter\Audits\Traits\AuditsTrait;
 
+/**
+ * @see AuditsTrait
+ */
 class ActionModel extends Model
 {
-    protected $table = 'm_actions';
-    protected $primaryKey = 'action_id';
+    use AuditsTrait;
+    protected $table = 'actions';
+    protected $primaryKey = 'id';
     protected $useAutoIncrement = true;
     protected $returnType = 'array';
     protected $useSoftDeletes = false;
     protected $protectFields = true;
     protected $allowedFields = [
         'item_id',
-        'action_name'
+        'name',
+        'created_at',
+        'updated_at',
     ];
 
-    public function get_datatable_action($data)
-    {
-        $base_query = $this->builder('m_actions ma')
-            ->select('action_id,item_id,action_name')
-            ->distinct();
+    protected bool $allowEmptyInserts = false;
+    protected bool $updateOnlyChanged = true;
 
-        if ($data['search'] != '') {
-            $query_result = $base_query
-                ->groupStart()
-                ->like('ma.action_name', (string) $data['search'], insensitiveSearch: true)
-                ->groupEnd()
-                ->where('ma.item_id', $data['item_id'] ?? '')
-                ->orderBy($data['order_column'], $data['order_sort'])
-                ->get($data['length'], offset: $data['start'])->getResultArray();
+    // Dates
+    protected $useTimestamps = false;
+    protected $dateFormat = 'datetime';
+    protected $createdField = 'created_at';
+    protected $updatedField = 'updated_at';
 
-            $filter_count = count($query_result);
-        } else {
-            $query_result = $base_query
-                ->where('ma.item_id', $data['item_id'] ?? '')
-                ->orderBy($data['order_column'], $data['order_sort'])
-                ->get($data['length'], offset: $data['start'])->getResultArray();
+    // Validation
+    protected $validationRules = [
+        'item_id' => 'required|integer',
+        'name' => 'required|string|max_length[255]',
+    ];
+    protected $validationMessages = [
+        'item_id' => [
+            'required' => 'Item ID is required.',
+            'integer' => 'Item ID must be an integer.',
+        ],
+        'name' => [
+            'required' => 'Action name is required.',
+            'string' => 'Action name must be a string.',
+            'max_length' => 'Action name cannot exceed 255 characters.',
+        ],
+    ];
+    protected $skipValidation = false;
+    protected $cleanValidationRules = true;
 
-            $filter_count = $base_query
-                ->where('ma.item_id', $data['item_id'] ?? '')
-                ->get()->getNumRows();
-        }
+    // Callbacks
+    protected $allowCallbacks = true;
+    protected $beforeInsert = [];
+    protected $afterInsert = ['auditInsert'];
+    protected $beforeUpdate = [];
+    protected $afterUpdate = ['auditUpdate'];
+    protected $beforeFind = [];
+    protected $afterFind = [];
+    protected $beforeDelete = [];
+    protected $afterDelete = ['auditDelete'];
 
-        $total_count = $base_query
-            ->where('ma.item_id', $data['item_id'] ?? '')
-            ->get()->getNumRows();
-
-        // Format data with numbering
-        $no = $data['start'] + 1;
-        $data_result = [];
-        foreach ($query_result as $row) {
-            $row['no'] = $no++;
-            $data_result[] = $row;
-        }
-
-        return [
-            'total' => $total_count,
-            'filtered' => $filter_count,
-            'data' => $data_result,
-            'draw' => $data['draw'],
-        ];
-    }
 }

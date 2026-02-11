@@ -47,4 +47,17 @@ class Factory extends BaseConfig
     public $models = [
         'preferApp' => true,
     ];
+
+    /**
+     * Specifies that Libraries should always favor child
+     * classes to allow easy extension of module Libraries.
+     *
+     * @var array
+     */
+    public $libraries = [
+        'path' => 'Libraries',
+        'instanceOf' => null,
+        'getShared' => true,
+        'preferApp' => true,
+    ];
 }

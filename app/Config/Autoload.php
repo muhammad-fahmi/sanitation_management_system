@@ -93,6 +93,7 @@ class Autoload extends AutoloadConfig
         'array',
         'url',
         'text',
-        'backend_helper'
+        'backend_helper',
+        'view_helpers'
     ];
 }
