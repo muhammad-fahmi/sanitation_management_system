@@ -89,6 +89,11 @@ class TaskSubmissionModel extends Model
             $baseBuilder->where('rts.location_id', (int) $data['location_id']);
         }
 
+        // Apply date filter if provided
+        if (!empty($data['date']) && $data['date'] !== '0') {
+            $baseBuilder->where('rts.date', $data['date']);
+        }
+
         // Apply search if provided
         if (!empty($data['search'])) {
             $search = $data['search'];
@@ -131,5 +136,40 @@ class TaskSubmissionModel extends Model
             'data' => $queryResult,
             'draw' => isset($data['draw']) ? (int) $data['draw'] : 0,
         ];
+    }
+
+    public function getSubmittedLocations($date = null)
+    {
+        $builder = $this->builder('r_task_submission AS rts')
+            ->distinct()
+            ->select('rts.location_id, ml.location_name')
+            ->join('m_locations AS ml', 'ml.location_id = rts.location_id', 'left')
+            ->where('rts.location_id IS NOT NULL', null, false);
+
+        if (!empty($date) && $date !== '0') {
+            $builder->where('rts.date', $date);
+        }
+
+        return $builder
+            ->orderBy('ml.location_name', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    public function getSubmittedDates($location_id = null)
+    {
+        $builder = $this->builder('r_task_submission AS rts')
+            ->distinct()
+            ->select('rts.date')
+            ->where('rts.date IS NOT NULL', null, false);
+
+        if (!empty($location_id) && $location_id !== '0') {
+            $builder->where('rts.location_id', (int) $location_id);
+        }
+
+        return $builder
+            ->orderBy('rts.date', 'ASC')
+            ->get()
+            ->getResultArray();
     }
 }

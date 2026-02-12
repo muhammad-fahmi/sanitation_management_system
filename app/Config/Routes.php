@@ -84,6 +84,8 @@ $routes->group("verifikator", static function (RouteCollection $routes) {
     $routes->get('/', 'Verifikator::index');
     // POST
     $routes->post('get_datatable', 'Verifikator::get_datatable');
+    $routes->post('get_locations', 'Verifikator::get_locations');
+    $routes->post('get_dates', 'Verifikator::get_dates');
     $routes->post('modal', 'Verifikator::modal');
     $routes->post('update', 'Verifikator::update');
     // PUT

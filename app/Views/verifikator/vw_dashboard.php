@@ -42,6 +42,17 @@
                     <option value="0">Semua Lokasi</option>
                 </select>
             </div>
+            <div class="mb-3">
+                <label for="filterDate" class="form-label">Filter Tanggal</label>
+                <select id="filterDate" class="form-select">
+                    <option value="0">Semua Tanggal</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <button type="button" class="btn btn-outline-secondary" id="resetFilters">
+                    <iconify-icon icon="solar:refresh-bold"></iconify-icon> Reset Filter
+                </button>
+            </div>
             <div class="table-container overflow-x-scroll">
                 <table class="table table-striped text-center" style="vertical-align: middle" id="taskTable">
                     <thead>
@@ -123,53 +134,54 @@
             responsive: true,
             ajax: {
                 url: '<?= base_url('verifikator/get_datatable'); ?>',
-                    type: 'POST',
-                    data: function (d) {
-                        d.location_id = $('#filterLocation').val();
-                        return d;
+                type: 'POST',
+                data: function (d) {
+                    d.location_id = $('#filterLocation').val();
+                    d.date = $('#filterDate').val();
+                    return d;
+                }
+            },
+            columns: [
+                { data: 'no', orderable: false },
+                { data: 'date' },
+                { data: 'item_name' },
+                { data: 'action_name' },
+                { data: 'location_name' },
+                {
+                    data: 'status',
+                    orderable: false,
+                    render: function (data) {
+                        const status = (data || '').toLowerCase();
+                        switch (status) {
+                            case 'pending':
+                                return '<span class="badge bg-warning">Pending</span>';
+                            case 'verified':
+                                return '<span class="badge bg-success">Verified</span>';
+                            case 'selesai':
+                                return '<span class="badge bg-success">Verified</span>';
+                            case 'revised':
+                            case 'revisi':
+                                return '<span class="badge bg-info">Revisi</span>';
+                            case 'rejected':
+                                return '<span class="badge bg-danger">Rejected</span>';
+                            default:
+                                return '<span class="badge bg-secondary">' + (data || '-') + '</span>';
+                        }
                     }
                 },
-                columns: [
-                    { data: 'no', orderable: false },
-                    { data: 'date' },
-                    { data: 'item_name' },
-                    { data: 'action_name' },
-                    { data: 'location_name' },
-                    {
-                        data: 'status',
-                        orderable: false,
-                        render: function (data) {
-                            const status = (data || '').toLowerCase();
-                            switch (status) {
-                                case 'pending':
-                                    return '<span class="badge bg-warning">Pending</span>';
-                                case 'verified':
-                                    return '<span class="badge bg-success">Verified</span>';
-                                case 'selesai':
-                                    return '<span class="badge bg-success">Verified</span>';
-                                case 'revised':
-                                case 'revisi':
-                                    return '<span class="badge bg-info">Revisi</span>';
-                                case 'rejected':
-                                    return '<span class="badge bg-danger">Rejected</span>';
-                                default:
-                                    return '<span class="badge bg-secondary">' + (data || '-') + '</span>';
-                            }
+                {
+                    data: null,
+                    orderable: false,
+                    render: function (data, type, row) {
+                        const id = row.task_submission_id || row.id;
+                        if (!id) {
+                            return '-';
                         }
-                    },
-                    {
-                        data: null,
-                        orderable: false,
-                        render: function (data, type, row) {
-                            const id = row.task_submission_id || row.id;
-                            if (!id) {
-                                return '-';
-                            }
 
-                            const status = (row.status || '').toLowerCase();
+                        const status = (row.status || '').toLowerCase();
 
-                            if (status === 'pending') {
-                                return `
+                        if (status === 'pending') {
+                            return `
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-success btn-verify" data-id="${id}">
                                         <iconify-icon icon="solar:check-circle-bold"></iconify-icon> Verifikasi
@@ -179,10 +191,10 @@
                                     </button>
                                 </div>
                             `;
-                            }
+                        }
 
-                            if (status === 'revisi' || status === 'revised') {
-                                return `
+                        if (status === 'revisi' || status === 'revised') {
+                            return `
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-warning btn-edit" data-id="${id}">
                                         <iconify-icon icon="solar:pen-bold"></iconify-icon> Edit Revisi
@@ -363,22 +375,107 @@
             loadTaskModal(id, { readOnly: true, prefillMessage: rowData?.revision_message || '' });
         });
 
+        const applyOptions = ($select, items, getValue, getLabel) => {
+            const previousValue = $select.val();
+            $select.find('option:not([value="0"])').remove();
+
+            items.forEach(function (item) {
+                const value = getValue(item);
+                const label = getLabel(item);
+                if (value && label) {
+                    $select.append(`<option value="${value}">${label}</option>`);
+                }
+            });
+
+            if ($select.find(`option[value="${previousValue}"]`).length) {
+                $select.val(previousValue);
+            } else {
+                $select.val('0');
+            }
+        };
+
+        const formatDateLabel = (dateString) => {
+            if (!dateString) {
+                return '';
+            }
+            const parsed = new Date(`${dateString}T00:00:00`);
+            if (Number.isNaN(parsed.getTime())) {
+                return dateString;
+            }
+            return parsed.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+        };
+
+        // Populate locations dropdown from server-side list
+        const loadLocations = () => {
+            $.ajax({
+                url: '<?= base_url('verifikator/get_locations'); ?>',
+                type: 'POST',
+                data: {
+                    date: $('#filterDate').val()
+                },
+                success: function (response) {
+                    if (!response.success) {
+                        return;
+                    }
+
+                    applyOptions(
+                        $('#filterLocation'),
+                        response.data || [],
+                        function (row) { return row.location_id; },
+                        function (row) { return row.location_name; }
+                    );
+                }
+            });
+        };
+
+        const loadDates = () => {
+            $.ajax({
+                url: '<?= base_url('verifikator/get_dates'); ?>',
+                type: 'POST',
+                data: {
+                    location_id: $('#filterLocation').val()
+                },
+                success: function (response) {
+                    if (!response.success) {
+                        return;
+                    }
+
+                    applyOptions(
+                        $('#filterDate'),
+                        response.data || [],
+                        function (row) { return row.date; },
+                        function (row) { return formatDateLabel(row.date); }
+                    );
+                }
+            });
+        };
+
         // Handle location filter change
         $('#filterLocation').on('change', function () {
+            loadDates();
             taskTable.ajax.reload();
         });
 
-        // Populate locations dropdown from table data
-        let locationsAdded = new Set();
-        taskTable.on('draw.dt', function() {
-            const rows = taskTable.rows({ page: 'current' }).data();
-            rows.each(function(row) {
-                if (row.location_name && !locationsAdded.has(row.location_id)) {
-                    $('#filterLocation').append(`<option value="${row.location_id}">${row.location_name}</option>`);
-                    locationsAdded.add(row.location_id);
-                }
-            });
+        // Handle date filter change
+        $('#filterDate').on('change', function () {
+            loadLocations();
+            taskTable.ajax.reload();
         });
+
+        $('#resetFilters').on('click', function () {
+            $('#filterLocation').val('0');
+            $('#filterDate').val('0');
+            loadLocations();
+            loadDates();
+            taskTable.ajax.reload();
+        });
+
+        loadLocations();
+        loadDates();
     });
 </script>
 <?= $this->endSection() ?>

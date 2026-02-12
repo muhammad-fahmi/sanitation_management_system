@@ -36,6 +36,7 @@ class Verifikator extends BaseController
             'length' => (int) ($this->request->getPost('length') ?? 10),
             'search' => $this->request->getPost('search')['value'] ?? '',
             'location_id' => $this->request->getPost('location_id') ?? '0',
+            'date' => $this->request->getPost('date') ?? '0',
             'order_column' => '',
             'order_sort' => ''
         ];
@@ -62,6 +63,30 @@ class Verifikator extends BaseController
         $result = $taskSubmissionModel->getSubmittedTasks($data);
 
         return $this->response->setJSON($result);
+    }
+
+    public function get_locations()
+    {
+        $taskSubmissionModel = new TaskSubmissionModel();
+        $date = $this->request->getPost('date') ?? '0';
+        $locations = $taskSubmissionModel->getSubmittedLocations($date);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $locations,
+        ]);
+    }
+
+    public function get_dates()
+    {
+        $taskSubmissionModel = new TaskSubmissionModel();
+        $location_id = $this->request->getPost('location_id') ?? '0';
+        $dates = $taskSubmissionModel->getSubmittedDates($location_id);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $dates,
+        ]);
     }
 
     public function get_submitted_task()

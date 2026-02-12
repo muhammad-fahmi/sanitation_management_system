@@ -1,5 +1,5 @@
 {
-    "name": "codeigniter4/framework",
+    "name": "bionic-backend/app",
     "description": "The CodeIgniter framework v4",
     "license": "MIT",
     "type": "project",
@@ -11,6 +11,7 @@
     },
     "require": {
         "php": "^8.1",
+        "codeigniter4/framework": "^4.7.0",
         "ext-intl": "*",
         "ext-mbstring": "*",
         "firebase/php-jwt": "^7.0",
