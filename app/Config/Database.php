@@ -193,6 +193,26 @@ class Database extends Config
     {
         parent::__construct();
 
+        // Read environment variables at runtime (cannot be used in property defaults).
+        $this->default['hostname'] = (string) (getenv('DB_HOST') ?: (env('database.default.hostname') ?: $this->default['hostname']));
+        $this->default['username'] = (string) (getenv('DB_USER') ?: (env('database.default.username') ?: $this->default['username']));
+        $this->default['password'] = (string) (getenv('DB_PASS') ?: (env('database.default.password') ?: $this->default['password']));
+        $this->default['database'] = (string) (getenv('DB_NAME') ?: (env('database.default.database') ?: $this->default['database']));
+        $this->default['DBDriver'] = (string) (getenv('DB_DRIVER') ?: (env('database.default.DBDriver') ?: $this->default['DBDriver']));
+        $this->default['port'] = (int) (getenv('DB_PORT') ?: (env('database.default.port') ?: $this->default['port']));
+
+        $driver = strtolower((string) ($this->default['DBDriver'] ?? ''));
+
+        if (str_contains($driver, 'postgre') || str_contains($driver, 'pgsql')) {
+            if (($this->default['charset'] ?? null) === 'utf8mb4') {
+                $this->default['charset'] = 'utf8';
+            }
+
+            if (($this->default['DBCollat'] ?? null) === 'utf8mb4_general_ci') {
+                $this->default['DBCollat'] = '';
+            }
+        }
+
         // Ensure that we always set the database group to 'tests' if
         // we are currently running an automated test suite, so that
         // we don't overwrite live data on accident.

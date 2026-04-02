@@ -12,7 +12,7 @@
                         <div class="d-flex align-items-center justify-content-center mb-2">
                             <div class=" d-flex align-items-center justify-content-center"
                                 style="width: 110px; height: 110px;">
-                                <div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
+                                <div class="border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
                                     style="width: 100px; height: 100px;">
                                     <img src="<?= base_url('assets/profiles/') . $user_info['name'] . '.jpg' ?>" alt=""
                                         class="w-100 h-100">
@@ -49,15 +49,21 @@
                 </select>
             </div>
             <div class="mb-3">
-                <button type="button" class="btn btn-outline-secondary" id="resetFilters">
-                    <iconify-icon icon="solar:refresh-bold"></iconify-icon> Reset Filter
-                </button>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-secondary" id="resetFilters">
+                        <iconify-icon icon="solar:refresh-bold"></iconify-icon> Reset Filter
+                    </button>
+                    <button type="button" class="btn btn-success" id="verifyAllPending">
+                        <iconify-icon icon="solar:check-read-bold"></iconify-icon> Verify All
+                    </button>
+                </div>
             </div>
             <div class="table-container overflow-x-scroll">
                 <table class="table table-striped text-center" style="vertical-align: middle" id="taskTable">
                     <thead>
                         <tr>
                             <th class="text-center">#</th>
+                            <th class="text-center">Kode</th>
                             <th class="text-center">Tanggal</th>
                             <th class="text-center">Item</th>
                             <th class="text-center">Aksi</th>
@@ -87,6 +93,17 @@
                         <textarea class="form-control" id="reviseMessage" rows="3"
                             placeholder="Masukkan pesan revisi..."></textarea>
                     </div>
+                    <div class="mb-3">
+                        <label for="reviseImage" class="form-label">Foto Bukti Revisi (Opsional)</label>
+                        <input type="file" class="form-control" id="reviseImage" accept="image/*">
+                        <small class="text-muted">Format: JPG/JPEG/PNG/WEBP, maksimal 5 MB.</small>
+                    </div>
+                    <div class="mb-2 d-none" id="reviseImagePreviewWrapper">
+                        <label class="form-label">Preview Foto Revisi</label>
+                        <div>
+                            <img id="reviseImagePreview" src="" alt="Preview Foto Revisi" class="img-fluid rounded border" style="max-height: 220px;">
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
@@ -110,9 +127,17 @@
                 </div>
                 <div class="modal-body">
                     <div id="taskDetailsReadOnly"></div>
-                    <div class="mb-3">
+                    <div class="mb-3" id="reviseMessageReadOnlyWrapper">
                         <label for="reviseMessageReadOnly" class="form-label">Pesan Revisi</label>
                         <textarea class="form-control" id="reviseMessageReadOnly" rows="3" readonly></textarea>
+                    </div>
+                    <div class="mb-3" id="reviseImageReadOnlyWrapper">
+                        <label class="form-label">Foto Bukti Revisi</label>
+                        <div>
+                            <a id="reviseImageReadOnlyLink" href="#" target="_blank" rel="noopener noreferrer" class="d-inline-block">
+                                <img id="reviseImageReadOnly" src="" alt="Foto Bukti Revisi" class="img-fluid rounded border" style="max-height: 220px;">
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -128,6 +153,29 @@
 <?= $this->section('script') ?>
 <script>
     $(document).ready(function () {
+        const getStatusLabel = (rawStatus) => {
+            const status = (rawStatus || '').toLowerCase();
+            switch (status) {
+                case 'verified':
+                case 'selesai':
+                    return 'Terverifikasi';
+                case 'pending':
+                    return 'Menunggu';
+                case 'revisi':
+                case 'revised':
+                case 'revise':
+                    return 'Revisi';
+                default:
+                    return rawStatus || '-';
+            }
+        };
+
+        const getCurrentFilters = () => ({
+            location_id: $('#filterLocation').val(),
+            date: $('#filterDate').val(),
+            search: taskTable ? taskTable.search() : ''
+        });
+
         const taskTable = $('#taskTable').DataTable({
             processing: true,
             serverSide: true,
@@ -143,6 +191,13 @@
             },
             columns: [
                 { data: 'no', orderable: false },
+                {
+                    data: 'unique_code',
+                    orderable: false,
+                    render: function (data) {
+                        return data ? '<code class="text-primary fw-bold">' + data + '</code>' : '-';
+                    }
+                },
                 { data: 'date' },
                 { data: 'item_name' },
                 { data: 'action_name' },
@@ -154,16 +209,16 @@
                         const status = (data || '').toLowerCase();
                         switch (status) {
                             case 'pending':
-                                return '<span class="badge bg-warning">Pending</span>';
+                                return '<span class="badge bg-warning">Menunggu</span>';
                             case 'verified':
-                                return '<span class="badge bg-success">Verified</span>';
+                                return '<span class="badge bg-success">Terverifikasi</span>';
                             case 'selesai':
-                                return '<span class="badge bg-success">Verified</span>';
+                                return '<span class="badge bg-success">Terverifikasi</span>';
                             case 'revised':
                             case 'revisi':
                                 return '<span class="badge bg-info">Revisi</span>';
                             case 'rejected':
-                                return '<span class="badge bg-danger">Rejected</span>';
+                                return '<span class="badge bg-danger">Ditolak</span>';
                             default:
                                 return '<span class="badge bg-secondary">' + (data || '-') + '</span>';
                         }
@@ -223,12 +278,26 @@
         });
 
         const renderTaskDetails = (task) => `
+            <p><strong>Kode:</strong> <code class="text-primary fw-bold">${task.unique_code || '-'}</code></p>
             <p><strong>Tanggal:</strong> ${task.date}</p>
             <p><strong>Item:</strong> ${task.item_name}</p>
             <p><strong>Aksi:</strong> ${task.action_names || task.action_name || '-'}</p>
             <p><strong>Lokasi:</strong> ${task.location_name}</p>
-            <p><strong>Status:</strong> ${task.status}</p>
+            <p><strong>Status:</strong> ${getStatusLabel(task.status)}</p>
         `;
+
+        const toImageUrl = (path) => {
+            if (!path) {
+                return '';
+            }
+
+            if (/^https?:\/\//i.test(path)) {
+                return path;
+            }
+
+            const normalized = String(path).replace(/\\/g, '/').replace(/^\/+/, '');
+            return '<?= rtrim(base_url(), '/') ?>/' + normalized;
+        };
 
         const loadTaskModal = (id, { readOnly = false, prefillMessage = '' } = {}) => {
             $.ajax({
@@ -243,16 +312,49 @@
 
                     const task = response.data;
                     const message = prefillMessage || task.revision_message || '';
+                    const revisionImageUrl = toImageUrl(task.revision_image_path);
 
                     if (readOnly) {
+                        const status = (task.status || '').toLowerCase();
+                        const isVerified = status === 'verified' || status === 'selesai';
+
                         $('#taskDetailsReadOnly').html(renderTaskDetails(task));
-                        $('#reviseMessageReadOnly').val(message);
+                        if (isVerified) {
+                            $('#reviseMessageReadOnlyWrapper').hide();
+                            $('#reviseMessageReadOnly').val('');
+                            $('#reviseImageReadOnlyWrapper').hide();
+                            $('#reviseImageReadOnly').attr('src', '');
+                            $('#reviseImageReadOnlyLink').attr('href', '#');
+                        } else {
+                            $('#reviseMessageReadOnlyWrapper').show();
+                            $('#reviseMessageReadOnly').val(message);
+
+                            if (revisionImageUrl) {
+                                $('#reviseImageReadOnlyWrapper').show();
+                                $('#reviseImageReadOnly').attr('src', revisionImageUrl);
+                                $('#reviseImageReadOnlyLink').attr('href', revisionImageUrl);
+                            } else {
+                                $('#reviseImageReadOnlyWrapper').hide();
+                                $('#reviseImageReadOnly').attr('src', '');
+                                $('#reviseImageReadOnlyLink').attr('href', '#');
+                            }
+                        }
                         $('#detailModal').modal('show');
                         return;
                     }
 
                     $('#taskDetails').html(renderTaskDetails(task));
                     $('#reviseMessage').val(message);
+                    $('#reviseImage').val('');
+
+                    if (revisionImageUrl) {
+                        $('#reviseImagePreviewWrapper').removeClass('d-none');
+                        $('#reviseImagePreview').attr('src', revisionImageUrl);
+                    } else {
+                        $('#reviseImagePreviewWrapper').addClass('d-none');
+                        $('#reviseImagePreview').attr('src', '');
+                    }
+
                     $('#reviseModal').data('task-id', id);
                     $('#reviseModalLabel').text(message ? 'Edit Revisi Tugas' : 'Revisi Tugas');
                     $('#btnRevise').text(message ? 'Update' : 'Revisi');
@@ -326,14 +428,21 @@
                 return;
             }
 
+            const reviseImage = $('#reviseImage')[0]?.files?.[0];
+            const formData = new FormData();
+            formData.append('id', id);
+            formData.append('action', 'revisi');
+            formData.append('revise_description', reviseMessage);
+            if (reviseImage) {
+                formData.append('revise_image', reviseImage);
+            }
+
             $.ajax({
                 url: '<?= base_url('verifikator/update'); ?>',
                 type: 'POST',
-                data: {
-                    id: id,
-                    action: 'revisi',
-                    revise_description: reviseMessage
-                },
+                data: formData,
+                processData: false,
+                contentType: false,
                 success: function (response) {
                     if (response.success) {
                         alert('Tugas berhasil direvisi.');
@@ -351,6 +460,20 @@
                     alert('Terjadi kesalahan saat merevisi tugas.');
                 }
             });
+        });
+
+        $('#reviseImage').on('change', function () {
+            const file = this.files && this.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                $('#reviseImagePreviewWrapper').removeClass('d-none');
+                $('#reviseImagePreview').attr('src', e.target?.result || '');
+            };
+            reader.readAsDataURL(file);
         });
 
         $(document).on('click', '.btn-edit', function (e) {
@@ -373,6 +496,41 @@
             }
             const rowData = taskTable.row($(this).closest('tr')).data();
             loadTaskModal(id, { readOnly: true, prefillMessage: rowData?.revision_message || '' });
+        });
+
+        $('#verifyAllPending').on('click', function () {
+            const filters = getCurrentFilters();
+
+            if (!confirm('Verifikasi semua tugas dengan status pending pada filter saat ini?')) {
+                return;
+            }
+
+            $.ajax({
+                url: '<?= base_url('verifikator/verify_all'); ?>',
+                type: 'POST',
+                data: filters,
+                beforeSend: function () {
+                    $('#verifyAllPending').prop('disabled', true);
+                },
+                success: function (response) {
+                    if (response.success) {
+                        alert(response.message);
+                        var currentPage = taskTable.page();
+                        taskTable.ajax.reload(function () {
+                            taskTable.page(currentPage).draw(false);
+                        });
+                        return;
+                    }
+
+                    alert('Gagal memverifikasi semua tugas: ' + response.message);
+                },
+                error: function () {
+                    alert('Terjadi kesalahan saat memverifikasi semua tugas.');
+                },
+                complete: function () {
+                    $('#verifyAllPending').prop('disabled', false);
+                }
+            });
         });
 
         const applyOptions = ($select, items, getValue, getLabel) => {

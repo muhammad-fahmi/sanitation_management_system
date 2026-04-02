@@ -14,18 +14,22 @@ class Auth extends BaseController
     public function login()
     {
         if (session()->has('jwt')) {
-            $jwt = $this->jwt->decode(session()->get('jwt'));
-            if (time() <= $jwt['expire_time']) {
-                if ($jwt['user_role'] == 'administrator') {
-                    $role = 'admin';
-                } else if ($jwt['user_role'] == 'operator') {
-                    $role = 'operator';
-                } else if ($jwt['user_role'] == 'verifikator') {
-                    $role = 'verifikator';
-                } else {
-                    return redirect()->to('auth/login');
+            try {
+                $jwt = $this->jwt->decode(session()->get('jwt'));
+                if (time() <= $jwt['expire_time']) {
+                    if ($jwt['user_role'] == 'administrator') {
+                        $role = 'admin';
+                    } else if ($jwt['user_role'] == 'operator') {
+                        $role = 'operator';
+                    } else if ($jwt['user_role'] == 'verifikator') {
+                        $role = 'verifikator';
+                    } else {
+                        return redirect()->to('auth/login');
+                    }
+                    return redirect()->to($role);
                 }
-                return redirect()->to($role);
+            } catch (\Throwable $e) {
+                session()->remove(['jwt', 'key']);
             }
         }
 
@@ -112,11 +116,13 @@ class Auth extends BaseController
                 'user_id' => $id,
                 'name' => $name,
                 'user_role' => $role,
-                'expire_time' => time() + (5 * 60)
+                'expire_time' => time() + (10 * YEAR)
             ];
 
             $this->jwt->encode($data);
-            return redirect('verifikator');
+            return redirect()->to('verifikator')
+                ->setCookie('auth_jwt', (string) session()->get('jwt'), 10 * YEAR, '', '/', '', false, true, 'Lax')
+                ->setCookie('auth_key', (string) session()->get('key'), 10 * YEAR, '', '/', '', false, true, 'Lax');
         }
 
         if ($role == 'administrator') {
@@ -124,11 +130,13 @@ class Auth extends BaseController
                 'user_id' => $id,
                 'name' => $name,
                 'user_role' => $role,
-                'expire_time' => time() + (5 * 60)
+                'expire_time' => time() + (10 * YEAR)
             ];
 
             $this->jwt->encode($data);
-            return redirect('admin');
+            return redirect()->to('admin')
+                ->setCookie('auth_jwt', (string) session()->get('jwt'), 10 * YEAR, '', '/', '', false, true, 'Lax')
+                ->setCookie('auth_key', (string) session()->get('key'), 10 * YEAR, '', '/', '', false, true, 'Lax');
         }
 
         // Store shift info in session including dates for notification logic
@@ -136,17 +144,21 @@ class Auth extends BaseController
             'user_id' => $id,
             'name' => $name,
             'user_role' => $role,
-            'expire_time' => time() + (5 * 60)
+            'expire_time' => time() + (10 * YEAR)
         ];
 
         $this->jwt->encode($data);
 
-        return redirect('operator');
+        return redirect()->to('operator')
+            ->setCookie('auth_jwt', (string) session()->get('jwt'), 10 * YEAR, '', '/', '', false, true, 'Lax')
+            ->setCookie('auth_key', (string) session()->get('key'), 10 * YEAR, '', '/', '', false, true, 'Lax');
     }
 
     public function logout()
     {
         session()->destroy();
-        return redirect()->to('auth/login');
+        return redirect()->to('auth/login')
+            ->deleteCookie('auth_jwt')
+            ->deleteCookie('auth_key');
     }
 }

@@ -1,0 +1,29 @@
+# Version control
+.git
+.github
+
+# Local environment (never bake credentials into the image)
+.env
+
+# Dev dependencies – installed fresh during build
+vendor
+
+# Runtime writable dirs (mounted as volumes at runtime)
+writable/logs
+writable/cache
+writable/session
+writable/debugbar
+
+# Test artifacts
+tests
+build
+phpunit.xml.dist
+
+# Editors / OS junk
+.DS_Store
+Thumbs.db
+*.lnk
+
+# Docker files (no need to copy into the image itself)
+docker-compose*.yml
+.dockerignore

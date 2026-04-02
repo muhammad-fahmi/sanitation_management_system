@@ -1,0 +1,86 @@
+services:
+  # ── Application ─────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${DOCKER_IMAGE:-bionic-backend}:${DOCKER_TAG:-latest}
+    container_name: bionic_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      CI_ENVIRONMENT: ${CI_ENVIRONMENT:-production}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080/}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-bionic_db}
+      DB_USER: ${DB_USER:-bionic_user}
+      DB_PASS: ${DB_PASS:-secret}
+      DB_DRIVER: Postgre
+      CACHE_HANDLER: ${CACHE_HANDLER:-redis}
+      CACHE_BACKUP_HANDLER: ${CACHE_BACKUP_HANDLER:-file}
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      AUTO_SEED: ${AUTO_SEED:-true}
+      SEED_FORCE: ${SEED_FORCE:-false}
+      SEEDER_CLASS: ${SEEDER_CLASS:-MainSeeder}
+    volumes:
+      - app_writable:/var/www/html/writable
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bionic_net
+
+  # ── Database ─────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: bionic_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-bionic_db}
+      POSTGRES_USER: ${DB_USER:-bionic_user}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-bionic_user} -d ${DB_NAME:-bionic_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - bionic_net
+
+  # ── Cache ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bionic_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - bionic_net
+
+volumes:
+  db_data:
+  app_writable:
+  redis_data:
+
+networks:
+  bionic_net:
+    driver: bridge

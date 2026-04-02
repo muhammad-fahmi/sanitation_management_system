@@ -159,4 +159,39 @@ class Cache extends BaseConfig
      * @var bool|list<string>
      */
     public $cacheQueryString = false;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $handler = getenv('CACHE_HANDLER');
+        if (is_string($handler) && $handler !== '' && isset($this->validHandlers[$handler])) {
+            $this->handler = $handler;
+        }
+
+        $backup = getenv('CACHE_BACKUP_HANDLER');
+        if (is_string($backup) && $backup !== '' && isset($this->validHandlers[$backup])) {
+            $this->backupHandler = $backup;
+        }
+
+        $redisHost = getenv('REDIS_HOST');
+        if (is_string($redisHost) && $redisHost !== '') {
+            $this->redis['host'] = $redisHost;
+        }
+
+        $redisPort = getenv('REDIS_PORT');
+        if (is_string($redisPort) && $redisPort !== '') {
+            $this->redis['port'] = (int) $redisPort;
+        }
+
+        $redisDb = getenv('REDIS_DB');
+        if (is_string($redisDb) && $redisDb !== '') {
+            $this->redis['database'] = (int) $redisDb;
+        }
+
+        $redisPassword = getenv('REDIS_PASSWORD');
+        if ($redisPassword !== false && $redisPassword !== '') {
+            $this->redis['password'] = $redisPassword;
+        }
+    }
 }

@@ -34,6 +34,6 @@ class TaskSubmissionDetail extends Migration
 
     public function down()
     {
-        $this->forge->dropTable('t_task_submission_details', true);
+        $this->forge->dropTable('r_task_submission_detail', true);
     }
 }

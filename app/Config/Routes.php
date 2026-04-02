@@ -87,9 +87,13 @@ $routes->group("verifikator", static function (RouteCollection $routes) {
     $routes->post('get_locations', 'Verifikator::get_locations');
     $routes->post('get_dates', 'Verifikator::get_dates');
     $routes->post('modal', 'Verifikator::modal');
+    $routes->post('verify_all', 'Verifikator::verify_all');
     $routes->post('update', 'Verifikator::update');
     // PUT
     $routes->put('edit', 'Verifikator::update');
+    // Laporan
+    $routes->get('laporan/rekapitulasi', 'Verifikator::rekapitulasi');
+    $routes->get('laporan/rekapitulasi/summary', 'Verifikator::get_rekapitulasi_summary');
 });
 
 $routes->set404Override(function () {

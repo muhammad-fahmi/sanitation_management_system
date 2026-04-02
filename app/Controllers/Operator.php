@@ -11,6 +11,24 @@ use App\Models\TaskSubmissionDetailModel;
 
 class Operator extends BaseController
 {
+    private ?bool $hasRevisionImageColumn = null;
+
+    private function canUseRevisionImageColumn(): bool
+    {
+        if ($this->hasRevisionImageColumn !== null) {
+            return $this->hasRevisionImageColumn;
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $this->hasRevisionImageColumn = $db->fieldExists('revision_image_path', 'r_task_submission');
+        } catch (\Throwable $e) {
+            $this->hasRevisionImageColumn = false;
+        }
+
+        return $this->hasRevisionImageColumn;
+    }
+
     /**
      * Display operator dashboard with available rooms
      */
@@ -161,6 +179,14 @@ class Operator extends BaseController
             $location_id = $submissions[0]['location_id'];
             $date = $submissions[0]['date'];
 
+            // Generate ONE unique code for this entire submission batch.
+            // All items submitted in this call share the same code.
+            // Items in the same location+time are treated as a single submit.
+            $batchUserId = (int) $user_id;
+            $seq = $taskSubmissionModel->getNextSubmitSeq($batchUserId, $date);
+            $dateYmd = str_replace('-', '', $date);
+            $uniqueCode = '#' . $batchUserId . '-' . $dateYmd . '-' . str_pad($seq, 3, '0', STR_PAD_LEFT);
+
             // Fetch existing submissions for this location/date
             $existing = $taskSubmissionModel->where('location_id', $location_id)
                 ->where('date', $date)
@@ -212,10 +238,13 @@ class Operator extends BaseController
                     $updateData = [
                         'time_cleaned' => $newTimeCleaned,
                         'status' => $newStatus,
+                        'unique_code' => $uniqueCode,
                         'verified_by' => null,
                         'verified_at' => null
                     ];
 
+                    // Filter out columns that don't exist in the database
+                    $updateData = $taskSubmissionModel->filterDataForInsert($updateData);
                     $taskSubmissionModel->update($taskId, $updateData);
 
                     // Increment quantity for existing details, insert new ones if action is new
@@ -249,6 +278,7 @@ class Operator extends BaseController
                         'location_id' => $payload['location_id'],
                         'item_id' => $payload['item_id'],
                         'time_cleaned' => 1,
+                        'unique_code' => $uniqueCode,
                         'revision_message' => null,
                         'status' => 'pending',
                         'submitted_by' => $payload['submitted_by'],
@@ -256,6 +286,8 @@ class Operator extends BaseController
                         'verified_at' => null
                     ];
 
+                    // Filter out columns that don't exist in the database
+                    $data = $taskSubmissionModel->filterDataForInsert($data);
                     $taskId = $taskSubmissionModel->insert($data);
 
                     // Insert new details with quantity = 1
@@ -269,7 +301,11 @@ class Operator extends BaseController
                 }
             }
 
-            return $this->response->setJSON(['status' => 200, 'message' => 'Submission berhasil disimpan']);
+            return $this->response->setJSON([
+                'status' => 200,
+                'message' => 'Submission berhasil disimpan',
+                'unique_code' => $uniqueCode,
+            ]);
         }
 
         return $this->response->setStatusCode(400)->setJSON(['status' => 400, 'message' => 'Data submission tidak ditemukan']);
@@ -325,6 +361,14 @@ class Operator extends BaseController
 
         // Get submissions that need revision with optimized query
         $db = \Config\Database::connect();
+        $actionNamesAggregate = str_contains(strtolower($db->DBDriver ?? ''), 'postgre')
+            ? "STRING_AGG(DISTINCT ma.action_name, ', ' ORDER BY ma.action_name) AS action_names"
+            : 'GROUP_CONCAT(DISTINCT ma.action_name ORDER BY ma.action_name SEPARATOR ", ") AS action_names';
+
+        $hasRevisionImage = $this->canUseRevisionImageColumn();
+        $revisionImageSelect = $hasRevisionImage ? 'rts.revision_image_path,' : "'' AS revision_image_path,";
+        $revisionImageGroupBy = $hasRevisionImage ? ', rts.revision_image_path' : '';
+
         $revisedSubmissions = $db->table('r_task_submission AS rts')
             ->select('
                 rts.task_submission_id,
@@ -332,18 +376,20 @@ class Operator extends BaseController
                 rts.location_id,
                 rts.item_id,
                 rts.revision_message,
+                ' . $revisionImageSelect . '
                 rts.status,
                 rts.submitted_by,
                 ml.location_name,
                 mi.item_name,
-                GROUP_CONCAT(DISTINCT ma.action_name ORDER BY ma.action_name SEPARATOR ", ") AS action_names
-            ')
+                ' . $actionNamesAggregate,
+                false
+            )
             ->join('r_task_submission_detail AS rtsd', 'rts.task_submission_id = rtsd.task_submission_id')
             ->join('m_actions AS ma', 'ma.action_id = rtsd.action_id', 'left')
             ->join('m_locations AS ml', 'ml.location_id = rts.location_id', 'left')
             ->join('m_items AS mi', 'mi.item_id = rts.item_id', 'left')
             ->whereIn('rts.status', ['revisi', 'revised'])
-            ->groupBy('rts.task_submission_id, rts.date, rts.location_id, rts.item_id, rts.revision_message, rts.status, rts.submitted_by, ml.location_name, mi.item_name')
+            ->groupBy('rts.task_submission_id, rts.date, rts.location_id, rts.item_id, rts.revision_message' . $revisionImageGroupBy . ', rts.status, rts.submitted_by, ml.location_name, mi.item_name')
             ->orderBy('rts.date', 'DESC')
             ->get()
             ->getResultArray();

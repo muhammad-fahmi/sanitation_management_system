@@ -4,8 +4,6 @@ namespace App\Controllers;
 
 use App\Libraries\JwtService;
 use CodeIgniter\Controller;
-use CodeIgniter\HTTP\CLIRequest;
-use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -25,7 +23,7 @@ abstract class BaseController extends Controller
     /**
      * Instance of the main Request object.
      *
-     * @var CLIRequest|IncomingRequest
+    * @var \CodeIgniter\HTTP\CLIRequest|\CodeIgniter\HTTP\IncomingRequest
      */
     protected $request;
 
@@ -36,7 +34,7 @@ abstract class BaseController extends Controller
      *
      * @var list<string>
      */
-    protected $helpers = [];
+    protected $helpers = ['cookie'];
 
     /**
      * Be sure to declare properties for any property fetch you initialized.
@@ -54,6 +52,32 @@ abstract class BaseController extends Controller
         parent::initController($request, $response, $logger);
 
         $this->jwt = new JwtService();
+
+        // Restore auth session from cookies when PHP session rotates/expires.
+        if (!session()->has('jwt')) {
+            $cookieJwt = $this->request->getCookie('auth_jwt');
+            $cookieKey = $this->request->getCookie('auth_key');
+
+            if (!empty($cookieJwt) && !empty($cookieKey)) {
+                session()->set('jwt', $cookieJwt);
+                session()->set('key', $cookieKey);
+            }
+        }
+
+        if (session()->has('jwt')) {
+            try {
+                $decoded = $this->jwt->decode(session()->get('jwt'));
+                if (time() > ((int) ($decoded['expire_time'] ?? 0))) {
+                    session()->remove(['jwt', 'key', 'revision_room_count']);
+                    $this->response->deleteCookie('auth_jwt');
+                    $this->response->deleteCookie('auth_key');
+                }
+            } catch (\Throwable $e) {
+                session()->remove(['jwt', 'key', 'revision_room_count']);
+                $this->response->deleteCookie('auth_jwt');
+                $this->response->deleteCookie('auth_key');
+            }
+        }
 
         // Initialize revision room count for sidebar badge
         $jwt = session()->get('jwt');

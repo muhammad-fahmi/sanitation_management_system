@@ -29,7 +29,7 @@ class Users extends Migration
                 'constraint' => 100
             ],
             'password' => [
-                'type' => 'longtext'
+                'type' => 'text'
             ],
             'user_role' => [
                 'type' => 'varchar',

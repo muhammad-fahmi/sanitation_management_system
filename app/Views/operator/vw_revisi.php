@@ -56,6 +56,7 @@
                                 <th class="text-center">Aksi</th>
                                 <th class="text-center">Lokasi</th>
                                 <th class="text-center">Deskripsi Revisi</th>
+                                <th class="text-center">Foto Bukti</th>
                                 <th class="text-center">Aksi</th>
                             </tr>
                         </thead>
@@ -72,6 +73,16 @@
                                     <td><?= esc($submission['location_name'] ?? 'Lokasi Tidak Ditemukan') ?></td>
                                     <td><small><?= esc($submission['revision_message'] ?? '-') ?></small></td>
                                     <td>
+                                        <?php if (!empty($submission['revision_image_path'])): ?>
+                                            <a href="<?= base_url($submission['revision_image_path']) ?>" target="_blank" rel="noopener noreferrer">
+                                                <img src="<?= base_url($submission['revision_image_path']) ?>" alt="Bukti Revisi" class="img-fluid rounded border"
+                                                    style="max-height: 70px; max-width: 120px; object-fit: cover;">
+                                            </a>
+                                        <?php else: ?>
+                                            <small class="text-muted">-</small>
+                                        <?php endif; ?>
+                                        </td>
+                                        <td>
                                         <button class="btn btn-sm btn-primary"
                                             onclick="goToRoom(<?= $submission['location_id'] ?>)">
                                             <iconify-icon icon="solar:arrow-right-bold"></iconify-icon> Revisi

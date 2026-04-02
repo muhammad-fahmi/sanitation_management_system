@@ -1,33 +1,45 @@
-# CodeIgniter 4 Framework
+# Bionic Backend
 
-## What is CodeIgniter?
+REST API backend for the **Bionic Cleaning Tracker** application.
+Built with **CodeIgniter 4**, **PHP 8.3**, and **PostgreSQL**.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+## Roles
 
-This repository holds the distributable version of the framework.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+| Role | Description |
+|------|-------------|
+| Admin | Manage users, locations, items, and actions |
+| Operator | Submit task completions |
+| Verifikator | Verify submitted tasks |
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+## Docker Deployment
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+The fastest way to run this application is with Docker.
+See [DOCKER.md](DOCKER.md) for the full guide including how to build, push to Docker Hub, and run on a server.
 
-## Important Change with index.php
+```bash
+cp .env.example .env   # adjust DB_PASS and APP_BASE_URL
+docker compose up -d --build
+```
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+## Local Development (without Docker)
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+Requirements: PHP 8.3+, Composer, PostgreSQL.
 
-**Please** read the user guide for a better explanation of how CI4 works!
+```bash
+composer install
+cp .env.example .env   # fill in database credentials
+php spark migrate --all
+php spark db:seed MainSeeder
+php spark serve
+```
 
-## Repository Management
+## CLI Commands
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
+```bash
+php spark shift:initialize   # Set up operator shift assignments
+php spark shift:rotate       # Rotate shift assignments
+php spark status:clean       # Clean task status
+```
 We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
 FEATURE REQUESTS.
 

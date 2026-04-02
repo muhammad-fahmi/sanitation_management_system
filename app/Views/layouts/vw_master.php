@@ -154,7 +154,18 @@ if (isset($user_info) && $user_info == null) {
                             <li class="sidebar-item">
                                 <a class="sidebar-link waves-effect waves-dark sidebar-link"
                                     href="<?= base_url(relativePath: 'verifikator'); ?>" aria-expanded="false"><iconify-icon
-                                        icon="solar:widget-outline"></iconify-icon><span hpp class="hide-menu">Dashboard</span></a>
+                                        icon="solar:widget-outline"></iconify-icon><span class="hide-menu">Dashboard</span></a>
+                            </li>
+                            <li class="nav-small-cap">
+                                <iconify-icon icon="solar:menu-dots-bold" class="nav-small-cap-icon fs-4"></iconify-icon>
+                                <span class="hide-menu">LAPORAN</span>
+                            </li>
+                            <li class="sidebar-item">
+                                <a class="sidebar-link waves-effect waves-dark sidebar-link <?= (url_is('verifikator/laporan/rekapitulasi')) ? 'active' : '' ?>"
+                                    href="<?= base_url('verifikator/laporan/rekapitulasi'); ?>" aria-expanded="false">
+                                    <iconify-icon icon="solar:document-text-outline"></iconify-icon>
+                                    <span class="hide-menu">Rekapitulasi</span>
+                                </a>
                             </li>
                         <?php endif ?>
                         <!-- END Verifikator -->

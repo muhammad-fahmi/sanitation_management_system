@@ -31,13 +31,13 @@ class TaskSubmission extends Migration
                 'default' => 1
             ],
             'revision_message' => [
-                'type' => 'longtext',
+                'type' => 'text',
                 'null' => true,
                 'default' => null
             ],
             'status' => [
-                'type' => 'enum',
-                'constraint' => ['pending', 'verified', 'revised'],
+                'type' => 'varchar',
+                'constraint' => 20,
                 'default' => 'pending'
             ],
             'submitted_by' => [
