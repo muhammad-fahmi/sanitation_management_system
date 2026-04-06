@@ -4,17 +4,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: 1808561084/bionic-backend:latest
+    image: ${DOCKER_IMAGE:-1808561084/bionic-backend}:${DOCKER_TAG:-latest}
     container_name: bionic_app
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.bionic.rule=Host(`cleaning.bionic-natura.cloud`)"
-      - "traefik.http.routers.bionic.entrypoints=web"
-      - "traefik.http.services.bionic.loadbalancer.server.port=8080"
+    ports:
+      - "${APP_PORT:-8080}:80"
     environment:
       CI_ENVIRONMENT: ${CI_ENVIRONMENT:-production}
-      APP_BASE_URL: ${APP_BASE_URL:-https://cleaning.bionic-natura.cloud}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080/}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-bionic_db}

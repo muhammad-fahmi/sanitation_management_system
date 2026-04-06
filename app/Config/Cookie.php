@@ -3,7 +3,6 @@
 namespace Config;
 
 use CodeIgniter\Config\BaseConfig;
-use DateTimeInterface;
 
 class Cookie extends BaseConfig
 {
@@ -104,4 +103,18 @@ class Cookie extends BaseConfig
      * @see https://tools.ietf.org/html/rfc2616#section-2.2
      */
     public bool $raw = false;
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $domain = env('cookie.domain');
+        if ($domain === false || $domain === null) {
+            $domain = env('cookie_domain');
+        }
+
+        if ($domain !== false && $domain !== null) {
+            $this->domain = trim((string) $domain);
+        }
+    }
 }

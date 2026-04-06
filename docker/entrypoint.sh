@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 echo "==> Writing .env file from environment variables..."
@@ -6,6 +6,7 @@ cat > /var/www/html/.env << EOF
 CI_ENVIRONMENT = ${CI_ENVIRONMENT:-production}
 
 app.baseURL = ${APP_BASE_URL:-http://localhost/}
+cookie.domain = ${COOKIE_DOMAIN:-}
 
 database.default.hostname = ${DB_HOST:-db}
 database.default.database = ${DB_NAME:-bionic_db}
@@ -18,6 +19,16 @@ database.default.port = ${DB_PORT:-5432}
 session.driver = 'CodeIgniter\Session\Handlers\FileHandler'
 session.savePath = /var/www/html/writable/session
 EOF
+
+echo "==> Preparing writable directories..."
+mkdir -p \
+    /var/www/html/writable/cache \
+    /var/www/html/writable/logs \
+    /var/www/html/writable/session \
+    /var/www/html/writable/uploads \
+    /var/www/html/writable/debugbar
+chown -R www-data:www-data /var/www/html/writable
+chmod -R 775 /var/www/html/writable
 
 echo "==> Clearing persisted framework caches..."
 rm -f /var/www/html/writable/cache/FactoriesCache_* \
@@ -111,23 +122,14 @@ else
     echo "==> AUTO_SEED is disabled; skipping seed."
 fi
 
-echo "==> Ensuring Apache vhost config is valid..."
-cat > /etc/apache2/sites-available/000-default.conf << 'EOF'
-<VirtualHost *:80>
-    ServerAdmin webmaster@localhost
-    ServerName localhost
-    DocumentRoot /var/www/html/public
+echo "==> Validating PHP-FPM config..."
+php-fpm -t
 
-    <Directory /var/www/html/public>
-        Options -Indexes +FollowSymLinks
-        AllowOverride All
-        Require all granted
-    </Directory>
+echo "==> Validating Nginx config..."
+nginx -t
 
-    ErrorLog ${APACHE_LOG_DIR}/error.log
-    CustomLog ${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
-EOF
+echo "==> Starting PHP-FPM..."
+php-fpm -D
 
-echo "==> Starting Apache..."
-exec apache2-foreground
+echo "==> Starting Nginx..."
+exec nginx -g 'daemon off;'
