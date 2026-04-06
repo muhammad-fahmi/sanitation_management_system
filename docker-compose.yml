@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${DOCKER_IMAGE:-bionic-backend}:${DOCKER_TAG:-latest}
+    image: 1808561084/bionic-backend:latest
     container_name: bionic_app
     restart: unless-stopped
     labels:
