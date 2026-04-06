@@ -32,7 +32,7 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik-public}"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik_default}"
       - "traefik.http.routers.${TRAEFIK_NAME:-bionic-backend}.rule=Host(`${TRAEFIK_HOST:-cleaning.example.com}`)"
       - "traefik.http.routers.${TRAEFIK_NAME:-bionic-backend}.entrypoints=${TRAEFIK_ENTRYPOINTS:-websecure}"
       - "traefik.http.routers.${TRAEFIK_NAME:-bionic-backend}.tls=${TRAEFIK_TLS:-true}"
@@ -86,4 +86,4 @@ networks:
     driver: bridge
   traefik_public:
     external: true
-    name: ${TRAEFIK_NETWORK:-traefik-public}
+    name: ${TRAEFIK_NETWORK:-traefik_default}

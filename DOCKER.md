@@ -70,7 +70,7 @@ Important differences from local Docker use:
 - Hostinger cannot build from your repository context when you deploy a compose file by raw URL, so this file uses a prebuilt Docker image only.
 - You must publish the image to Docker Hub first.
 - The app service is exposed to the internet through Traefik labels, not `ports:`.
-- The app joins an external Traefik network. By default the file expects `traefik-public`.
+- The app joins an external Traefik network. By default the file expects `traefik_default`.
 
 Recommended Hostinger environment variables:
 
@@ -81,7 +81,7 @@ APP_BASE_URL=https://cleaning.example.com/
 COOKIE_DOMAIN=cleaning.example.com
 TRAEFIK_NAME=bionic-backend
 TRAEFIK_HOST=cleaning.example.com
-TRAEFIK_NETWORK=traefik-public
+TRAEFIK_NETWORK=traefik_default
 TRAEFIK_ENTRYPOINTS=websecure
 TRAEFIK_TLS=true
 DB_NAME=bionic_db
