@@ -10,8 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg62-turbo-dev \
     libonig-dev \
     libxml2-dev \
-    unzip \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 # ── PHP extensions ───────────────────────────────────────────────────────────
@@ -45,13 +43,19 @@ COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 # ── Composer ─────────────────────────────────────────────────────────────────
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# ── Application ──────────────────────────────────────────────────────────────
 WORKDIR /var/www/html
 
-COPY . .
+COPY composer.json composer.lock ./
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress \
+RUN composer install \
+    --no-dev \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-progress \
+    --prefer-dist \
     && rm -rf /root/.composer
+
+COPY . .
 
 # ── Permissions ──────────────────────────────────────────────────────────────
 RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writable/debugbar \

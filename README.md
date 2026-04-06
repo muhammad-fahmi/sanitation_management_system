@@ -16,6 +16,8 @@ Built with **CodeIgniter 4**, **PHP 8.3**, and **PostgreSQL**.
 The fastest way to run this application is with Docker.
 See [DOCKER.md](DOCKER.md) for the full guide including how to build, push to Docker Hub, and run on a server.
 
+The repository also includes a GitHub Actions workflow at [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml) for publishing tagged builds to Docker Hub.
+
 ```bash
 cp .env.example .env   # adjust DB_PASS and APP_BASE_URL
 docker compose up -d --build

@@ -79,6 +79,11 @@ All variables are defined in `.env` (copy from `.env.example`).
 
 ## Build & Push to Docker Hub
 
+You have two supported publish paths:
+
+1. Build and push manually from your machine.
+2. Publish from GitHub Actions to Docker Hub.
+
 ### 1. Log in to Docker Hub
 
 ```bash
@@ -118,6 +123,29 @@ docker push yourusername/bionic-backend:1.0.0
 docker tag yourusername/bionic-backend:1.0.0 yourusername/bionic-backend:latest
 docker push yourusername/bionic-backend:latest
 ```
+
+### 6. Publish with GitHub Actions
+
+This repository includes [.github/workflows/docker-publish.yml](.github/workflows/docker-publish.yml).
+
+Set these GitHub repository secrets before running it:
+
+| Name | Required | Description |
+| ---- | -------- | ----------- |
+| `DOCKERHUB_USERNAME` | Yes | Your Docker Hub username |
+| `DOCKERHUB_TOKEN` | Yes | A Docker Hub access token with push access |
+
+Optional repository variable:
+
+| Name | Required | Description |
+| ---- | -------- | ----------- |
+| `DOCKERHUB_IMAGE_NAME` | No | Full image name, for example `yourusername/bionic-backend` |
+
+Workflow behavior:
+
+- A push of a Git tag like `v1.2.0` publishes version tags to Docker Hub.
+- Manual runs from GitHub Actions can also publish `latest`.
+- If `DOCKERHUB_IMAGE_NAME` is not set, the workflow defaults to `DOCKERHUB_USERNAME/bionic-backend`.
 
 ---
 

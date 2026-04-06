@@ -19,6 +19,10 @@ session.driver = 'CodeIgniter\Session\Handlers\FileHandler'
 session.savePath = /var/www/html/writable/session
 EOF
 
+echo "==> Clearing persisted framework caches..."
+rm -f /var/www/html/writable/cache/FactoriesCache_* \
+    /var/www/html/writable/cache/FileLocatorCache
+
 echo "==> Waiting for database at ${DB_HOST:-db}:${DB_PORT:-5432}..."
 MAX_TRIES=30
 COUNT=0
@@ -106,6 +110,24 @@ if (stripos(\$driver, 'postgre') !== false) {
 else
     echo "==> AUTO_SEED is disabled; skipping seed."
 fi
+
+echo "==> Ensuring Apache vhost config is valid..."
+cat > /etc/apache2/sites-available/000-default.conf << 'EOF'
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    ServerName localhost
+    DocumentRoot /var/www/html/public
+
+    <Directory /var/www/html/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
 echo "==> Starting Apache..."
 exec apache2-foreground
