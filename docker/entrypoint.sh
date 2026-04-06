@@ -122,14 +122,25 @@ else
     echo "==> AUTO_SEED is disabled; skipping seed."
 fi
 
-echo "==> Validating PHP-FPM config..."
-php-fpm -t
+echo "==> Ensuring Apache vhost config is valid..."
+cat > /etc/apache2/sites-available/000-default.conf << 'EOF'
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    ServerName localhost
+    DocumentRoot /var/www/html/public
 
-echo "==> Validating Nginx config..."
-nginx -t
+    <Directory /var/www/html/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
 
-echo "==> Starting PHP-FPM..."
-php-fpm -D
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
-echo "==> Starting Nginx..."
-exec nginx -g 'daemon off;'
+apache2ctl -t
+
+echo "==> Starting Apache..."
+exec apache2-foreground

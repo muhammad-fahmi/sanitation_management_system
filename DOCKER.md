@@ -9,12 +9,13 @@ Stack: **PHP 8.3 + Apache**, **PostgreSQL 16**.
 
 1. [Prerequisites](#prerequisites)
 2. [Quick Start (docker compose)](#quick-start)
-3. [Environment Variables Reference](#environment-variables-reference)
-4. [Build & Push to Docker Hub](#build--push-to-docker-hub)
-5. [Pull & Run on a Server](#pull--run-on-a-server)
-6. [Database Seeding](#database-seeding)
-7. [Useful Commands](#useful-commands)
-8. [Troubleshooting](#troubleshooting)
+3. [Hostinger Compose By URL](#hostinger-compose-by-url)
+4. [Environment Variables Reference](#environment-variables-reference)
+5. [Build & Push to Docker Hub](#build--push-to-docker-hub)
+6. [Pull & Run on a Server](#pull--run-on-a-server)
+7. [Database Seeding](#database-seeding)
+8. [Useful Commands](#useful-commands)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -47,6 +48,53 @@ docker compose logs -f app
 
 The API is now available at **http://localhost:8080** (or the `APP_PORT` you set).  
 Migrations run automatically on every container start.
+
+---
+
+## Hostinger Compose By URL
+
+For Hostinger Docker Manager with **Compose by URL**, use the dedicated file:
+
+```text
+docker-compose.hostinger.yml
+```
+
+Use the raw GitHub URL in Hostinger, for example:
+
+```text
+https://raw.githubusercontent.com/muhammad-fahmi/bionic-backend/master/docker-compose.hostinger.yml
+```
+
+Important differences from local Docker use:
+
+- Hostinger cannot build from your repository context when you deploy a compose file by raw URL, so this file uses a prebuilt Docker image only.
+- You must publish the image to Docker Hub first.
+- The app service is exposed to the internet through Traefik labels, not `ports:`.
+- The app joins an external Traefik network. By default the file expects `traefik-public`.
+
+Recommended Hostinger environment variables:
+
+```dotenv
+DOCKER_IMAGE=1808561084/bionic-backend
+DOCKER_TAG=latest
+APP_BASE_URL=https://cleaning.example.com/
+COOKIE_DOMAIN=cleaning.example.com
+TRAEFIK_NAME=bionic-backend
+TRAEFIK_HOST=cleaning.example.com
+TRAEFIK_NETWORK=traefik-public
+TRAEFIK_ENTRYPOINTS=websecure
+TRAEFIK_TLS=true
+DB_NAME=bionic_db
+DB_USER=bionic_user
+DB_PASS=change_me_in_production
+AUTO_SEED=true
+SEED_FORCE=false
+SEEDER_CLASS=MainSeeder
+```
+
+You can also use [hostinger.env.example](hostinger.env.example) as the reference template when filling variables in Hostinger.
+
+If your Hostinger Traefik network has a different name, set `TRAEFIK_NETWORK` to match it.
 
 ---
 

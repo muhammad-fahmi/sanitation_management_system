@@ -1,28 +1,16 @@
-FROM php:8.3-fpm-alpine
+FROM php:8.3-apache-bookworm
 
 # ── System dependencies ──────────────────────────────────────────────────────
-RUN apk add --no-cache \
-    nginx \
-    icu-libs \
-    libzip \
-    libpng \
-    freetype \
-    libjpeg-turbo \
-    oniguruma \
-    libxml2 \
-    postgresql-libs \
-    mariadb-connector-c \
-    && apk add --no-cache --virtual .build-deps \
-    $PHPIZE_DEPS \
-    icu-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    libicu-dev \
     libzip-dev \
     libpng-dev \
-    freetype-dev \
-    libjpeg-turbo-dev \
-    oniguruma-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libonig-dev \
     libxml2-dev \
-    postgresql-dev \
-    mariadb-connector-c-dev
+    && rm -rf /var/lib/apt/lists/*
 
 # ── PHP extensions ───────────────────────────────────────────────────────────
 RUN docker-php-ext-configure intl \
@@ -39,16 +27,18 @@ RUN docker-php-ext-configure intl \
     opcache
 
 RUN pecl install redis \
-    && docker-php-ext-enable redis \
-    && apk del .build-deps
+    && docker-php-ext-enable redis
 
 # ── PHP production config ─────────────────────────────────────────────────────
-RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY docker/php-opcache.ini "$PHP_INI_DIR/conf.d/opcache.ini"
 
-# ── Nginx ────────────────────────────────────────────────────────────────────
-COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+# ── Apache ───────────────────────────────────────────────────────────────────
+RUN a2enmod rewrite
+RUN echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf \
+    && a2enconf servername
+COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 
 # ── Composer ─────────────────────────────────────────────────────────────────
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -68,7 +58,7 @@ RUN composer install \
 COPY . .
 
 # ── Permissions ──────────────────────────────────────────────────────────────
-RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writable/debugbar /run/nginx \
+RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writable/debugbar \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/writable
 
