@@ -1,23 +1,18 @@
 services:
-  # ── Application ─────────────────────────────────────────────────────────────
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ${DOCKER_IMAGE:-1808561084/bionic-backend}:${DOCKER_TAG:-latest}
-    container_name: bionic_app
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-8080}:80"
+    expose:
+      - "80"
     environment:
       CI_ENVIRONMENT: ${CI_ENVIRONMENT:-production}
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080/}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      APP_BASE_URL: ${APP_BASE_URL:-https://cleaning.example.com/}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-cleaning.example.com}
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-bionic_db}
       DB_USER: ${DB_USER:-bionic_user}
-      DB_PASS: ${DB_PASS:-secret}
+      DB_PASS: ${DB_PASS:-change_me_in_production}
       DB_DRIVER: Postgre
       CACHE_HANDLER: ${CACHE_HANDLER:-redis}
       CACHE_BACKUP_HANDLER: ${CACHE_BACKUP_HANDLER:-file}
@@ -35,18 +30,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik_default}"
+      - "traefik.http.routers.${TRAEFIK_NAME:-bionic-backend}.rule=Host(`${TRAEFIK_HOST:-cleaning.example.com}`)"
+      - "traefik.http.routers.${TRAEFIK_NAME:-bionic-backend}.entrypoints=${TRAEFIK_ENTRYPOINTS:-websecure}"
+      - "traefik.http.routers.${TRAEFIK_NAME:-bionic-backend}.tls=${TRAEFIK_TLS:-true}"
+      - "traefik.http.services.${TRAEFIK_NAME:-bionic-backend}.loadbalancer.server.port=80"
     networks:
-      - bionic_net
+      - bionic_internal
+      - traefik_public
 
-  # ── Database ─────────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
-    container_name: bionic_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-bionic_db}
       POSTGRES_USER: ${DB_USER:-bionic_user}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:-change_me_in_production}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -59,12 +60,10 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - bionic_net
+      - bionic_internal
 
-  # ── Cache ───────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: bionic_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -75,7 +74,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - bionic_net
+      - bionic_internal
 
 volumes:
   db_data:
@@ -83,5 +82,8 @@ volumes:
   redis_data:
 
 networks:
-  bionic_net:
+  bionic_internal:
     driver: bridge
+  traefik_public:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik_default}
