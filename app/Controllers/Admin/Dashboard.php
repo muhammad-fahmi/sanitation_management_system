@@ -48,11 +48,11 @@ class Dashboard extends BaseController
     {
         $db = \Config\Database::connect();
 
-        $result = $db->table('m_locations')
-            ->select('m_locations.location_name, COUNT(r_task_submission.task_submission_id) as visit_count')
-            ->join('r_task_submission', 'r_task_submission.location_id = m_locations.location_id', 'left')
-            ->groupBy('m_locations.location_id')
-            ->having('visit_count >', 0)
+        $result = $db->table('m_locations AS ml')
+            ->select('ml.location_name, COUNT(rts.task_submission_id) AS visit_count')
+            ->join('r_task_submission AS rts', 'rts.location_id = ml.location_id')
+            ->groupBy('ml.location_id, ml.location_name')
+            ->orderBy('visit_count', 'DESC')
             ->get()
             ->getResultArray();
 
