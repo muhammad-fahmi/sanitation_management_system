@@ -54,3 +54,23 @@ if (!function_exists('render_backtrace')) {
         return implode("\n", $backtraces);
     }
 }
+
+if (!function_exists('profile_image_url')) {
+    function profile_image_url(?string $userName, string $defaultPath = 'assets/images/profile/user-1.jpg'): string
+    {
+        $defaultUrl = base_url($defaultPath);
+
+        if ($userName === null || trim($userName) === '') {
+            return $defaultUrl;
+        }
+
+        $relativePath = 'assets/profiles/' . trim($userName) . '.jpg';
+        $absolutePath = FCPATH . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+
+        if (!is_file($absolutePath)) {
+            return $defaultUrl;
+        }
+
+        return base_url($relativePath);
+    }
+}
