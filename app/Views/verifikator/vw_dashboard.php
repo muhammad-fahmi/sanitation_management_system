@@ -14,7 +14,7 @@
                                 style="width: 110px; height: 110px;">
                                 <div class="border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
                                     style="width: 100px; height: 100px;">
-                                    <img src="<?= base_url('assets/profiles/') . $user_info['name'] . '.jpg' ?>" alt=""
+                                    <img src="<?= profile_image_url($user_info['name'] ?? null) ?>" alt=""
                                         class="w-100 h-100">
                                 </div>
                             </div>
@@ -165,6 +165,8 @@
                 case 'revised':
                 case 'revise':
                     return 'Revisi';
+                case 'resubmitted':
+                    return 'Dikirim Ulang';
                 default:
                     return rawStatus || '-';
             }
@@ -217,6 +219,8 @@
                             case 'revised':
                             case 'revisi':
                                 return '<span class="badge bg-info">Revisi</span>';
+                            case 'resubmitted':
+                                return '<span class="badge bg-secondary">Dikirim Ulang</span>';
                             case 'rejected':
                                 return '<span class="badge bg-danger">Ditolak</span>';
                             default:
