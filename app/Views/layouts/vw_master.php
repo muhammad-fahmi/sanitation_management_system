@@ -52,7 +52,7 @@ if (isset($user_info) && $user_info == null) {
                         style="background: url(<?= base_url('assets/images/backgrounds/user-info.jpg') ?>) no-repeat;">
                         <!-- User profile image -->
                         <div class="profile-img">
-                            <img src="<?= (esc($user_info['user_role']) != 'administrator') ? base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' : base_url('assets/images/profile/user-1.jpg') ?>"
+                            <img src="<?= profile_image_url($user_info['name'] ?? null) ?>"
                                 alt="user" class="w-100 rounded-circle overflow-hidden" />
                         </div>
                         <!-- END User profile image -->
