@@ -47,14 +47,30 @@ class Dashboard extends BaseController
     public function get_room_visits()
     {
         $db = \Config\Database::connect();
+        $hasUniqueCodeColumn = false;
 
-        $result = $db->table('m_locations AS ml')
-            ->select('ml.location_name, COUNT(rts.task_submission_id) AS visit_count')
+        try {
+            $hasUniqueCodeColumn = $db->fieldExists('unique_code', 'r_task_submission');
+        } catch (\Throwable $e) {
+            $hasUniqueCodeColumn = false;
+        }
+
+        $visitCountSelect = $hasUniqueCodeColumn
+            ? 'COUNT(DISTINCT rts.unique_code) AS visit_count'
+            : 'COUNT(DISTINCT rts.task_submission_id) AS visit_count';
+
+        $builder = $db->table('m_locations AS ml')
+            ->select('ml.location_name, ' . $visitCountSelect)
             ->join('r_task_submission AS rts', 'rts.location_id = ml.location_id')
             ->groupBy('ml.location_id, ml.location_name')
-            ->orderBy('visit_count', 'DESC')
-            ->get()
-            ->getResultArray();
+            ->orderBy('visit_count', 'DESC');
+
+        if ($hasUniqueCodeColumn) {
+            $builder->where('rts.unique_code IS NOT NULL', null, false)
+                ->where("rts.unique_code != ''", null, false);
+        }
+
+        $result = $builder->get()->getResultArray();
 
         return $this->response->setJSON([
             'status' => 200,
