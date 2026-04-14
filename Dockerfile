@@ -1,33 +1,18 @@
 FROM php:8.3-apache-bookworm
 
 # ── System dependencies ──────────────────────────────────────────────────────
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    libicu-dev \
-    libzip-dev \
-    libpng-dev \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libonig-dev \
-    libxml2-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── PHP extensions ───────────────────────────────────────────────────────────
-RUN docker-php-ext-configure intl \
+RUN apt-get update && apt-get install -y \
+    libpq-dev libicu-dev libzip-dev \
+    libpng-dev libfreetype6-dev libjpeg62-turbo-dev \
+    libonig-dev libxml2-dev \
+    && docker-php-ext-configure intl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
-    pdo_pgsql \
-    pgsql \
-    mysqli \
-    pdo_mysql \
-    gd \
-    intl \
-    mbstring \
-    zip \
-    opcache
-
-RUN pecl install redis \
-    && docker-php-ext-enable redis
+    pdo_pgsql pgsql mysqli pdo_mysql gd \
+    intl mbstring zip opcache \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ── PHP production config ─────────────────────────────────────────────────────
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
@@ -53,14 +38,14 @@ RUN composer install \
     --no-interaction \
     --no-progress \
     --prefer-dist \
+    --no-scripts \
     && rm -rf /root/.composer
 
-COPY . .
+COPY --chown=www-data:www-data . .
 
 # ── Permissions ──────────────────────────────────────────────────────────────
-RUN mkdir -p writable/cache writable/logs writable/session writable/uploads writable/debugbar \
-    && chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/writable
+RUN mkdir -p writable/cache writable/logs writable/temp writable/uploads \
+    && chown -R www-data:www-data writable/
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 COPY docker/entrypoint.sh /entrypoint.sh
