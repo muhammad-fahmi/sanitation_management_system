@@ -15,7 +15,7 @@
 								style="width: 110px; height: 110px;">
 								<div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
 									style="width: 100px; height: 100px;">
-									<img src="<?= base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' ?>"
+									<img src="<?= profile_image_url($user_info['name'] ?? null) ?>"
 										class="w-100 h-100" alt="<?= esc($user_info['name']) ?>">
 								</div>
 							</div>

@@ -12,7 +12,7 @@
                         <div class="d-flex align-items-center justify-content-center mb-2">
                             <div class="d-flex align-items-center justify-content-center" style="width: 110px; height: 110px;">
                                 <div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden" style="width: 100px; height: 100px;">
-                                    <img src="<?= base_url('assets/profiles/') . esc($user_info['name']) . '.jpg' ?>" class="w-100 h-100"
+                                    <img src="<?= profile_image_url($user_info['name'] ?? null) ?>" class="w-100 h-100"
                                         alt="<?= esc($user_info['name']) ?>">
                                 </div>
                             </div>
@@ -48,8 +48,10 @@
                                 <?php if (!empty($room['has_revision'])): ?>
                                     <span
                                         class="position-absolute top-0 start-100 translate-middle badge bg-warning text-dark rounded-pill">!</span>
-                                <?php elseif (!empty($room['submitted'])): ?>
-                                    <span class="position-absolute top-0 start-100 translate-middle badge bg-success rounded-pill">✓</span>
+                                <?php elseif (!empty($room['submit_count'])): ?>
+                                    <span class="position-absolute top-0 start-100 translate-middle badge bg-success rounded-pill">
+                                        <?= (int) $room['submit_count'] ?>
+                                </span>
                                 <?php endif; ?>
                             </button>
                         </div>

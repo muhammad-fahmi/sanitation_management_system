@@ -36,14 +36,33 @@ class Operator extends BaseController
     {
         $location = new LocationModel();
         $taskSubmission = new TaskSubmissionModel();
+        $db = \Config\Database::connect();
         $rooms = $location->getAllRoom();
         $today = date('Y-m-d');
+        $hasUniqueCodeColumn = false;
 
-        // Preload submission and revision locations for today to avoid per-room queries
-        $submittedLocationIds = $taskSubmission->select('location_id')
-            ->where('date', $today)
-            ->groupBy('location_id')
-            ->findColumn('location_id') ?? [];
+        try {
+            $hasUniqueCodeColumn = $db->fieldExists('unique_code', 'r_task_submission');
+        } catch (\Throwable $e) {
+            $hasUniqueCodeColumn = false;
+        }
+
+        // Preload submission counts and revision locations for today to avoid per-room queries
+        $submitCountSelect = $hasUniqueCodeColumn
+            ? 'rts.location_id, COUNT(DISTINCT rts.unique_code) AS submit_count'
+            : 'rts.location_id, COUNT(DISTINCT rts.task_submission_id) AS submit_count';
+
+        $submittedCounts = $db->table('r_task_submission AS rts')
+            ->select($submitCountSelect, false)
+            ->where('rts.date', $today)
+            ->groupBy('rts.location_id')
+            ->get()
+            ->getResultArray();
+
+        $submittedCountsByLocation = [];
+        foreach ($submittedCounts as $row) {
+            $submittedCountsByLocation[(int) $row['location_id']] = (int) ($row['submit_count'] ?? 0);
+        }
 
         $revisionLocationIds = $taskSubmission->select('location_id')
             ->where('date', $today)
@@ -54,7 +73,8 @@ class Operator extends BaseController
         // Mark rooms that already have submissions today and those with revisions
         foreach ($rooms as &$room) {
             $roomId = $room['location_id'];
-            $room['submitted'] = in_array($roomId, $submittedLocationIds, true);
+            $room['submit_count'] = $submittedCountsByLocation[(int) $roomId] ?? 0;
+            $room['submitted'] = $room['submit_count'] > 0;
             $room['has_revision'] = in_array($roomId, $revisionLocationIds, true);
         }
 
@@ -187,17 +207,6 @@ class Operator extends BaseController
             $dateYmd = str_replace('-', '', $date);
             $uniqueCode = '#' . $batchUserId . '-' . $dateYmd . '-' . str_pad($seq, 3, '0', STR_PAD_LEFT);
 
-            // Fetch existing submissions for this location/date
-            $existing = $taskSubmissionModel->where('location_id', $location_id)
-                ->where('date', $date)
-                ->findAll();
-
-            $existingTasksByItem = [];
-            foreach ($existing as $ex) {
-                $itemId = (int) $ex['item_id'];
-                $existingTasksByItem[$itemId] = $ex;
-            }
-
             // Group new submissions by item
             $grouped = [];
             foreach ($submissions as $submission) {
@@ -218,86 +227,41 @@ class Operator extends BaseController
                 }
             }
 
-            // Process submissions: update existing or create new
+            // Process submissions: every save creates a new task submission row.
+            // Older revised rows for the same room/date/item are marked as resubmitted.
             foreach ($grouped as $itemId => $payload) {
+                $taskSubmissionModel->builder()
+                    ->where('location_id', $payload['location_id'])
+                    ->where('item_id', $payload['item_id'])
+                    ->where('date', $payload['date'])
+                    ->whereIn('status', ['revisi', 'revised'])
+                    ->update([
+                        'status' => 'resubmitted',
+                    ]);
 
-                if (isset($existingTasksByItem[$itemId])) {
-                    // Update existing task submission
-                    $existingTask = $existingTasksByItem[$itemId];
-                    $taskId = $existingTask['task_submission_id'];
+                $data = [
+                    'date' => $payload['date'],
+                    'location_id' => $payload['location_id'],
+                    'item_id' => $payload['item_id'],
+                    'time_cleaned' => 1,
+                    'unique_code' => $uniqueCode,
+                    'revision_message' => null,
+                    'status' => 'pending',
+                    'submitted_by' => $payload['submitted_by'],
+                    'verified_by' => null,
+                    'verified_at' => null
+                ];
 
-                    // Update status: if revisi/revised, change to pending; otherwise keep verified
-                    $currentStatus = $existingTask['status'] ?? null;
-                    $newStatus = in_array($currentStatus, ['revisi', 'revised'], true) ? 'pending' : 'verified';
+                // Filter out columns that don't exist in the database
+                $data = $taskSubmissionModel->filterDataForInsert($data);
+                $taskId = $taskSubmissionModel->insert($data);
 
-                    // Increment time_cleaned by 1 on resubmission
-                    $currentTimeCleaned = (int) ($existingTask['time_cleaned'] ?? 0);
-                    $newTimeCleaned = $currentTimeCleaned + 1;
-
-                    // Update task submission FIRST (preserve revision_message, clear verified metadata)
-                    $updateData = [
-                        'time_cleaned' => $newTimeCleaned,
-                        'status' => $newStatus,
-                        'unique_code' => $uniqueCode,
-                        'verified_by' => null,
-                        'verified_at' => null
-                    ];
-
-                    // Filter out columns that don't exist in the database
-                    $updateData = $taskSubmissionModel->filterDataForInsert($updateData);
-                    $taskSubmissionModel->update($taskId, $updateData);
-
-                    // Increment quantity for existing details, insert new ones if action is new
-                    $existingActionIds = $taskSubmissionDetailModel->where('task_submission_id', $taskId)
-                        ->findColumn('action_id') ?? [];
-
-                    foreach ($payload['actions'] as $actionId) {
-                        $existingDetail = $taskSubmissionDetailModel->where('task_submission_id', $taskId)
-                            ->where('action_id', $actionId)
-                            ->first();
-
-                        if ($existingDetail) {
-                            // Increment quantity
-                            $newQuantity = (int) ($existingDetail['quantity'] ?? 1) + 1;
-                            $taskSubmissionDetailModel->update($existingDetail['task_submission_detail_id'], [
-                                'quantity' => $newQuantity
-                            ]);
-                        } else {
-                            // Insert new detail
-                            $taskSubmissionDetailModel->insert([
-                                'task_submission_id' => $taskId,
-                                'action_id' => $actionId,
-                                'quantity' => 1
-                            ]);
-                        }
-                    }
-                } else {
-                    // Create new task submission
-                    $data = [
-                        'date' => $payload['date'],
-                        'location_id' => $payload['location_id'],
-                        'item_id' => $payload['item_id'],
-                        'time_cleaned' => 1,
-                        'unique_code' => $uniqueCode,
-                        'revision_message' => null,
-                        'status' => 'pending',
-                        'submitted_by' => $payload['submitted_by'],
-                        'verified_by' => null,
-                        'verified_at' => null
-                    ];
-
-                    // Filter out columns that don't exist in the database
-                    $data = $taskSubmissionModel->filterDataForInsert($data);
-                    $taskId = $taskSubmissionModel->insert($data);
-
-                    // Insert new details with quantity = 1
-                    foreach ($payload['actions'] as $actionId) {
-                        $taskSubmissionDetailModel->insert([
-                            'task_submission_id' => $taskId,
-                            'action_id' => $actionId,
-                            'quantity' => 1
-                        ]);
-                    }
+                foreach ($payload['actions'] as $actionId) {
+                    $taskSubmissionDetailModel->insert([
+                        'task_submission_id' => $taskId,
+                        'action_id' => $actionId,
+                        'quantity' => 1
+                    ]);
                 }
             }
 
