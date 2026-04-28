@@ -225,7 +225,7 @@ Login Page
             </div>
             <div class="logo-text">
                 <h4>BIONIC NATURA</h4>
-                <p>Task Management System</p>
+                <p>Cleaning Tracker</p>
             </div>
         </a>
     </div>
