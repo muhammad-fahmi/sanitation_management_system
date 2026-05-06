@@ -22,34 +22,6 @@ class UserSeeder extends Seeder
                     'password' => password_hash('prasongko', PASSWORD_BCRYPT),
                     'is_active' => 1
                 ],
-                [
-                    'name' => 'yanto',
-                    'user_role' => 'operator',
-                    'username' => 'yanto',
-                    'password' => password_hash('yanto', PASSWORD_BCRYPT),
-                    'is_active' => 1
-                ],
-                [
-                    'name' => 'octo',
-                    'user_role' => 'operator',
-                    'username' => 'octo',
-                    'password' => password_hash('octo', PASSWORD_BCRYPT),
-                    'is_active' => 1
-                ],
-                [
-                    'name' => 'theo',
-                    'user_role' => 'operator',
-                    'username' => 'theo',
-                    'password' => password_hash('theo', PASSWORD_BCRYPT),
-                    'is_active' => 1
-                ],
-                [
-                    'name' => 'rian',
-                    'user_role' => 'verifikator',
-                    'username' => 'rian',
-                    'password' => password_hash('rian', PASSWORD_BCRYPT),
-                    'is_active' => 1
-                ],
             ];
 
             if (!empty($data)) {

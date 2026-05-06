@@ -119,7 +119,7 @@ class User extends BaseController
             'name' => 'required|min_length[3]|max_length[200]',
             'user_role' => 'required|in_list[operator,verifikator,administrator]',
             'username' => 'required|min_length[3]|max_length[150]',
-            'password' => 'required|min_length[6]',
+            'password' => 'required|min_length[3]',
             'password_confirm' => 'required|matches[password]'
         ];
 
@@ -184,7 +184,7 @@ class User extends BaseController
             'name' => 'required|min_length[3]|max_length[200]',
             'user_role' => 'required|in_list[operator,verifikator,administrator]',
             'username' => 'required|min_length[3]|max_length[150]',
-            'password' => 'permit_empty|min_length[6]'
+            'password' => 'permit_empty|min_length[3]'
         ];
 
         if (!$this->validate($rules)) {

@@ -58,7 +58,7 @@ class Verifikator extends BaseController
             'user_info' => $this->jwt->decode(session()->get('jwt')),
         ];
 
-        return view('verifikator/vw_dashboard', $sent_data);
+        return view('verifikator/vw_rekapitulasi', $sent_data);
     }
 
     public function get_datatable()
@@ -144,7 +144,7 @@ class Verifikator extends BaseController
             'user_info' => $decode,
         ];
 
-        return view('verifikator/vw_rekapitulasi', $sent_data);
+        return view('verifikator/vw_dashboard', $sent_data);
     }
 
     public function get_rekapitulasi_summary()
@@ -200,6 +200,211 @@ class Verifikator extends BaseController
             'success' => true,
             'data' => $summary,
         ]);
+    }
+
+    public function export_filtered()
+    {
+        if (!session()->has('jwt')) {
+            return redirect()->to('auth/login');
+        }
+        $decode = $this->jwt->decode(session()->get('jwt'));
+        if (time() > $decode['expire_time'] || $decode['user_role'] !== 'verifikator') {
+            return redirect()->to('auth/login');
+        }
+
+        $format     = $this->request->getGet('format') ?? 'excel';
+        $locationId = $this->request->getGet('location_id') ?? '0';
+        $date       = $this->request->getGet('date') ?? '0';
+
+        $taskSubmissionModel = new TaskSubmissionModel();
+        $result = $taskSubmissionModel->getSubmittedTasks([
+            'location_id' => $locationId,
+            'date'        => $date,
+            'search'      => '',
+        ]);
+        $rows = $result['data'] ?? [];
+
+        // Resolve location label
+        $locationLabel = 'Semua Lokasi';
+        if ($locationId !== '0') {
+            $db  = \Config\Database::connect();
+            $loc = $db->table('m_locations')->select('location_name')->where('location_id', (int) $locationId)->get()->getRowArray();
+            if ($loc) {
+                $locationLabel = $loc['location_name'];
+            }
+        }
+
+        $dateLabel = $date !== '0' ? $date : 'Semua Tanggal';
+
+        if ($format === 'excel') {
+            return $this->_exportExcel($rows, $locationLabel, $dateLabel);
+        }
+
+        return $this->_exportPdf($rows, $locationLabel, $dateLabel);
+    }
+
+    private function _exportExcel(array $rows, string $locationLabel, string $dateLabel)
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Daftar Tugas');
+
+        // Title
+        $sheet->mergeCells('A1:H1');
+        $sheet->setCellValue('A1', 'Daftar Tugas');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        // Subtitle
+        $sheet->mergeCells('A2:H2');
+        $sheet->setCellValue('A2', 'Lokasi: ' . $locationLabel . '   |   Tanggal: ' . $dateLabel . '   |   Dibuat: ' . date('d/m/Y H:i'));
+        $sheet->getStyle('A2')->getFont()->setItalic(true);
+
+        // Header row
+        $headers = ['#', 'Kode', 'Tanggal', 'Item', 'Aksi', 'Lokasi', 'Status', 'Waktu Dibersihkan'];
+        $col     = 'A';
+        foreach ($headers as $h) {
+            $sheet->setCellValue($col . '3', $h);
+            $sheet->getStyle($col . '3')->getFont()->setBold(true);
+            $sheet->getStyle($col . '3')->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FF3B5998');
+            $sheet->getStyle($col . '3')->getFont()->getColor()->setARGB('FFFFFFFF');
+            $col++;
+        }
+
+        // Data rows
+        $rowNum = 4;
+        foreach ($rows as $i => $row) {
+            $status = strtolower((string) ($row['status'] ?? ''));
+            $statusLabel = match ($status) {
+                'verified', 'selesai' => 'Terverifikasi',
+                'pending'             => 'Menunggu',
+                'revisi', 'revised', 'revise' => 'Revisi',
+                'resubmitted'         => 'Dikirim Ulang',
+                default               => $row['status'] ?? '-',
+            };
+
+            $sheet->setCellValue('A' . $rowNum, $i + 1);
+            $sheet->setCellValue('B' . $rowNum, $row['unique_code'] ?? '-');
+            $sheet->setCellValue('C' . $rowNum, $row['date'] ?? '-');
+            $sheet->setCellValue('D' . $rowNum, $row['item_name'] ?? '-');
+            $sheet->setCellValue('E' . $rowNum, $row['action_name'] ?? '-');
+            $sheet->setCellValue('F' . $rowNum, $row['location_name'] ?? '-');
+            $sheet->setCellValue('G' . $rowNum, $statusLabel);
+            $sheet->setCellValue('H' . $rowNum, $row['time_cleaned'] ?? '-');
+            $rowNum++;
+        }
+
+        // Auto-size
+        foreach (range('A', 'H') as $c) {
+            $sheet->getColumnDimension($c)->setAutoSize(true);
+        }
+
+        $filename = 'daftar-tugas-' . date('Ymd-His') . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $writer->save('php://output');
+        exit;
+    }
+
+    private function _exportPdf(array $rows, string $locationLabel, string $dateLabel)
+    {
+        $tableRows = '';
+        foreach ($rows as $i => $row) {
+            $status = strtolower((string) ($row['status'] ?? ''));
+            $statusLabel = match ($status) {
+                'verified', 'selesai' => 'Terverifikasi',
+                'pending'             => 'Menunggu',
+                'revisi', 'revised', 'revise' => 'Revisi',
+                'resubmitted'         => 'Dikirim Ulang',
+                default               => $row['status'] ?? '-',
+            };
+
+            $no          = $i + 1;
+            $code        = htmlspecialchars($row['unique_code'] ?? '-', ENT_QUOTES, 'UTF-8');
+            $date        = htmlspecialchars($row['date'] ?? '-', ENT_QUOTES, 'UTF-8');
+            $item        = htmlspecialchars($row['item_name'] ?? '-', ENT_QUOTES, 'UTF-8');
+            $action      = htmlspecialchars($row['action_name'] ?? '-', ENT_QUOTES, 'UTF-8');
+            $location    = htmlspecialchars($row['location_name'] ?? '-', ENT_QUOTES, 'UTF-8');
+            $statusEsc   = htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8');
+            $timeCleaned = htmlspecialchars($row['time_cleaned'] ?? '-', ENT_QUOTES, 'UTF-8');
+
+            $tableRows .= "<tr>
+                <td>{$no}</td>
+                <td>{$code}</td>
+                <td>{$date}</td>
+                <td>{$item}</td>
+                <td>{$action}</td>
+                <td>{$location}</td>
+                <td>{$statusEsc}</td>
+                <td>{$timeCleaned}</td>
+            </tr>";
+        }
+
+        $locEsc  = htmlspecialchars($locationLabel, ENT_QUOTES, 'UTF-8');
+        $dateEsc = htmlspecialchars($dateLabel, ENT_QUOTES, 'UTF-8');
+        $gen     = date('d/m/Y H:i:s');
+        $count   = count($rows);
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Daftar Tugas</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 11px; padding: 20px; color: #111; }
+        h2 { text-align: center; font-size: 16px; margin-bottom: 4px; }
+        .subtitle { text-align: center; color: #555; font-size: 10px; margin-bottom: 6px; }
+        .meta { text-align: center; color: #777; font-size: 10px; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #bbb; padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background: #3b5998; color: #fff; font-size: 11px; }
+        tr:nth-child(even) { background: #f5f5f5; }
+        .no-print { margin-bottom: 14px; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button onclick="window.print()" style="padding:8px 18px;background:#3b5998;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
+            &#128438; Print / Save as PDF
+        </button>
+    </div>
+    <h2>Daftar Tugas</h2>
+    <p class="subtitle">Lokasi: {$locEsc} &nbsp;&bull;&nbsp; Tanggal: {$dateEsc}</p>
+    <p class="meta">Dibuat: {$gen} &nbsp;&bull;&nbsp; Total: {$count} data</p>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Kode</th>
+                <th>Tanggal</th>
+                <th>Item</th>
+                <th>Aksi</th>
+                <th>Lokasi</th>
+                <th>Status</th>
+                <th>Waktu Dibersihkan</th>
+            </tr>
+        </thead>
+        <tbody>
+            {$tableRows}
+        </tbody>
+    </table>
+    <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>
+HTML;
+
+        return $this->response
+            ->setHeader('Content-Type', 'text/html; charset=utf-8')
+            ->setBody($html);
     }
 
     public function verify_all()
@@ -401,9 +606,17 @@ class Verifikator extends BaseController
                 $revisionImagePath = 'uploads/revisions/' . $newFileName;
 
                 if (!empty($task['revision_image_path'])) {
-                    $oldPath = FCPATH . ltrim((string) $task['revision_image_path'], '/\\');
-                    if (is_file($oldPath)) {
-                        @unlink($oldPath);
+                    $relativePath = ltrim((string) $task['revision_image_path'], '/\\');
+                    $oldPaths = [
+                        WRITEPATH . $relativePath,
+                        FCPATH . $relativePath,
+                    ];
+
+                    foreach ($oldPaths as $oldPath) {
+                        if (is_file($oldPath)) {
+                            @unlink($oldPath);
+                            break;
+                        }
                     }
                 }
             }

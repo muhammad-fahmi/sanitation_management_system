@@ -53,6 +53,7 @@ if (isset($user_info) && $user_info == null) {
                         <!-- User profile image -->
                         <div class="profile-img">
                             <img src="<?= profile_image_url($user_info['name'] ?? null) ?>"
+                                id="sidebar_avatar_img"
                                 alt="user" class="w-100 rounded-circle overflow-hidden" />
                         </div>
                         <!-- END User profile image -->
@@ -69,7 +70,7 @@ if (isset($user_info) && $user_info == null) {
                             <div class="dropdown-menu animated flipInY" aria-labelledby="dropdownMenuLink"
                                 data-popper-placement="bottom-start"
                                 style="position: absolute; inset: 0px auto auto 0px; margin: 0px; transform: translate(0px, 41px);">
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="<?= base_url('profile') ?>">
                                     <i data-feather="user" width="24" height="24" stroke-width="2"
                                         class="feather-sm text-info me-1 ms-1" stroke-linecap="round"
                                         stroke-linejoin="round"></i>
@@ -743,7 +744,7 @@ if (isset($user_info) && $user_info == null) {
                                                 <a href="javascript:void(0)"
                                                     class="p-3 d-flex align-items-center dropdown-item gap-3 border-bottom">
                                                     <span class="user-img position-relative d-inline-block">
-                                                        <img src="<?= base_url('assets/images/profile/user-1.jpg') ?>"
+                                                        <img src="<?= profile_image_url($user_info['name'] ?? null) ?>"
                                                             alt="user" class="rounded-circle w-100 round-40" />
                                                         <span
                                                             class="profile-status bg-success position-absolute rounded-circle"></span>
@@ -870,7 +871,8 @@ if (isset($user_info) && $user_info == null) {
                                         <!-- Profile Icon -->
                                         <a class="nav-link nav-icon-hover" href="javascript:void(0)" id="drop2"
                                             aria-expanded="false">
-                                            <img src="<?= base_url('assets/images/profile/user-1.jpg') ?>" alt="user"
+                                            <img src="<?= profile_image_url($user_info['name'] ?? null) ?>" alt="user"
+                                                id="topbar_avatar_img"
                                                 class="profile-pic rounded-circle round-30" />
                                         </a>
                                         <!-- END Profile Icon -->
@@ -881,7 +883,8 @@ if (isset($user_info) && $user_info == null) {
                                                 <div class=" py-3 border-bottom">
                                                     <!-- Identity Description -->
                                                     <div class="d-flex align-items-center px-3">
-                                                        <img src="<?= base_url('assets/images/profile/user-1.jpg') ?>"
+                                                        <img src="<?= profile_image_url($user_info['name'] ?? null) ?>"
+                                                            id="topbar_dropdown_avatar_img"
                                                             class="rounded-circle round-50" alt="" />
                                                         <div class="ms-3">
                                                             <h5 class="mb-1 fs-4">

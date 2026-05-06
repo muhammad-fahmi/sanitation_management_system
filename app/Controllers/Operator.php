@@ -230,14 +230,38 @@ class Operator extends BaseController
             // Process submissions: every save creates a new task submission row.
             // Older revised rows for the same room/date/item are marked as resubmitted.
             foreach ($grouped as $itemId => $payload) {
-                $taskSubmissionModel->builder()
-                    ->where('location_id', $payload['location_id'])
-                    ->where('item_id', $payload['item_id'])
-                    ->where('date', $payload['date'])
-                    ->whereIn('status', ['revisi', 'revised'])
-                    ->update([
-                        'status' => 'resubmitted',
-                    ]);
+                // Fetch old revision images before overwriting status so we can delete them
+                if ($this->canUseRevisionImageColumn()) {
+                    $oldRows = $taskSubmissionModel->builder()
+                        ->select('revision_image_path')
+                        ->where('location_id', $payload['location_id'])
+                        ->where('item_id', $payload['item_id'])
+                        ->where('date', $payload['date'])
+                        ->whereIn('status', ['revisi', 'revised'])
+                        ->get()
+                        ->getResultArray();
+
+                    foreach ($oldRows as $oldRow) {
+                        if (!empty($oldRow['revision_image_path'])) {
+                            $filePath = FCPATH . ltrim((string) $oldRow['revision_image_path'], '/\\');
+                            if (is_file($filePath)) {
+                                @unlink($filePath);
+                            }
+                        }
+                    }
+                }
+
+                    $resubmitData = ['status' => 'resubmitted'];
+                    if ($this->canUseRevisionImageColumn()) {
+                        $resubmitData['revision_image_path'] = null;
+                    }
+
+                    $taskSubmissionModel->builder()
+                        ->where('location_id', $payload['location_id'])
+                        ->where('item_id', $payload['item_id'])
+                        ->where('date', $payload['date'])
+                        ->whereIn('status', ['revisi', 'revised'])
+                        ->update($resubmitData);
 
                 $data = [
                     'date' => $payload['date'],

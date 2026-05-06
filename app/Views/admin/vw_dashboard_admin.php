@@ -98,6 +98,25 @@ Admin Page
             </div>
         </div>
     </div>
+
+    <!-- Item Clean Count Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+                    <h5 class="card-title mb-0">Frekuensi Kebersihan Item</h5>
+                    <select id="location_filter" class="form-select" style="min-width:220px">
+                        <option value="">-- Pilih Lokasi --</option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <div id="itemCleanChart">
+                        <p class="text-muted text-center mt-4">Pilih lokasi untuk menampilkan data.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?= $this->endSection() ?>
@@ -131,7 +150,12 @@ Admin Page
                     const options = {
                         chart: {
                             type: 'bar',
-                            height: 400
+                            height: 400,
+                            toolbar: {
+                                show: true,
+                                tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false, reset: false },
+                                export: { png: { filename: 'kunjungan-ruangan' }, svg: { filename: 'kunjungan-ruangan' } }
+                            }
                         },
                         series: [{
                             name: 'Kunjungan',
@@ -149,6 +173,90 @@ Admin Page
                     chart.render();
                 }
             }
+        });
+
+        // Populate location dropdown
+        $('#location_filter').select2({
+            theme: 'bootstrap-5',
+            placeholder: '-- Pilih Lokasi --',
+            allowClear: true,
+            width: 'resolve'
+        });
+
+        $.ajax({
+            url: '<?= base_url('admin/get_locations') ?>',
+            type: 'GET',
+            dataType: 'json',
+            success: function (res) {
+                if (res.status === 200) {
+                    res.data.forEach(function (loc) {
+                        $('#location_filter').append(
+                            $('<option>', { value: loc.location_id, text: loc.location_name })
+                        );
+                    });
+                    $('#location_filter').trigger('change.select2');
+                }
+            }
+        });
+
+        let itemCleanChart = null;
+
+        $('#location_filter').on('change', function () {
+            const locationId = $(this).val();
+
+            if (!locationId) {
+                if (itemCleanChart) { itemCleanChart.destroy(); itemCleanChart = null; }
+                $('#itemCleanChart').html('<p class="text-muted text-center mt-4">Pilih lokasi untuk menampilkan data.</p>');
+                return;
+            }
+
+            $.ajax({
+                url: '<?= base_url('admin/get_item_clean_count') ?>',
+                type: 'GET',
+                dataType: 'json',
+                data: { location_id: locationId },
+                success: function (res) {
+                    if (res.status === 200) {
+                        const labels   = res.data.map(d => d.item_name);
+                        const counts   = res.data.map(d => parseInt(d.clean_count));
+                        const locName  = $('#location_filter option:selected').text();
+
+                        if (itemCleanChart) { itemCleanChart.destroy(); itemCleanChart = null; }
+                        $('#itemCleanChart').html('');
+
+                        if (labels.length === 0) {
+                            $('#itemCleanChart').html('<p class="text-muted text-center mt-4">Tidak ada item untuk lokasi ini.</p>');
+                            return;
+                        }
+
+                        const options = {
+                            chart: { type: 'bar', height: 380,
+                                toolbar: {
+                                    show: true,
+                                    tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false, reset: false },
+                                    export: { png: { filename: 'item-kebersihan-' + locName }, svg: { filename: 'item-kebersihan-' + locName } }
+                                }
+                            },
+                            plotOptions: {
+                                bar: { horizontal: false, borderRadius: 4, dataLabels: { position: 'top' } }
+                            },
+                            dataLabels: { enabled: true, offsetY: -20, style: { fontSize: '12px' } },
+                            series: [{ name: 'Jumlah Dibersihkan', data: counts }],
+                            xaxis: {
+                                categories: labels,
+                                labels: { rotate: -35, trim: true }
+                            },
+                            yaxis: { title: { text: 'Kali Dibersihkan' }, min: 0, forceNiceScale: true },
+                            title: { text: 'Item di "' + locName + '"', align: 'left' },
+                            colors: ['#5d87ff'],
+                            tooltip: { y: { formatter: val => val + ' kali' } }
+                        };
+
+                        itemCleanChart = new ApexCharts(document.querySelector('#itemCleanChart'), options);
+                        itemCleanChart.render();
+                    }
+                }
+            });
         });
     });
 </script>

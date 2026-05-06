@@ -89,7 +89,7 @@
             },
             password: {
                 required: false,
-                minlength: 6
+                minlength: 3
             },
         },
         errorClass: 'is-invalid',

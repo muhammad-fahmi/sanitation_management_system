@@ -3,11 +3,14 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\LocationModel;
 use App\Models\UserModel;
+use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class Dashboard extends BaseController
 {
-    public function index()
+    public function index(): RedirectResponse|string
     {
         // Check user info
         if (session()->has('jwt')) {
@@ -19,15 +22,17 @@ class Dashboard extends BaseController
             return redirect()->to('auth/login');
         }
 
+        // Prepare data to send to the view
         $sent_data = [
             'page_title' => 'Administrator Page',
             'user_info' => $this->jwt->decode(session()->get('jwt')),
         ];
 
+        // Load the view with the data
         return view('admin/vw_dashboard_admin', $sent_data);
     }
 
-    public function get_stats()
+    public function get_stats(): ResponseInterface
     {
         $userModel = new UserModel();
 
@@ -44,7 +49,7 @@ class Dashboard extends BaseController
         ]);
     }
 
-    public function get_room_visits()
+    public function get_room_visits(): ResponseInterface
     {
         $db = \Config\Database::connect();
         $hasUniqueCodeColumn = false;
@@ -59,6 +64,9 @@ class Dashboard extends BaseController
             ? 'COUNT(DISTINCT rts.unique_code) AS visit_count'
             : 'COUNT(DISTINCT rts.task_submission_id) AS visit_count';
 
+        $date = trim((string) ($this->request->getVar('date') ?? ''));
+        $hasValidDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1;
+
         $builder = $db->table('m_locations AS ml')
             ->select('ml.location_name, ' . $visitCountSelect)
             ->join('r_task_submission AS rts', 'rts.location_id = ml.location_id')
@@ -70,11 +78,61 @@ class Dashboard extends BaseController
                 ->where("rts.unique_code != ''", null, false);
         }
 
+        if ($hasValidDate) {
+            $builder->where('rts.date', $date);
+        }
+
         $result = $builder->get()->getResultArray();
 
         return $this->response->setJSON([
             'status' => 200,
             'data' => $result
+        ]);
+    }
+
+    public function get_locations(): ResponseInterface
+    {
+        $locationModel = new LocationModel();
+
+        return $this->response->setJSON([
+            'status' => 200,
+            'data'   => $locationModel->getAllRoom(),
+        ]);
+    }
+
+    public function get_item_clean_count(): ResponseInterface
+    {
+        $locationId = (int) $this->request->getVar('location_id');
+        $date = trim((string) ($this->request->getVar('date') ?? ''));
+        $hasValidDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1;
+
+        if ($locationId <= 0) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status'  => 400,
+                'message' => 'location_id required',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+
+        $cleanCountSelect = 'COUNT(rts.task_submission_id) AS clean_count';
+        if ($hasValidDate) {
+            $escapedDate = $db->escape($date);
+            $cleanCountSelect = "SUM(CASE WHEN rts.date = {$escapedDate} THEN 1 ELSE 0 END) AS clean_count";
+        }
+
+        $result = $db->table('m_items AS mi')
+            ->select('mi.item_name, ' . $cleanCountSelect, false)
+            ->join('r_task_submission AS rts', 'rts.item_id = mi.item_id', 'left')
+            ->where('mi.location_id', $locationId)
+            ->groupBy('mi.item_id, mi.item_name')
+            ->orderBy('mi.item_name', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON([
+            'status' => 200,
+            'data'   => $result,
         ]);
     }
 }

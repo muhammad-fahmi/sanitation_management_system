@@ -71,7 +71,7 @@
     <div class="action-section">
         <div class="section-title">📋 Pilihan dari Administrator</div>
         <?php foreach ($actions as $action): ?>
-            <div class="todo-item" id="item_<?= $action['action_id'] ?>">
+            <div class="todo-item" id="action_item_<?= $action['action_id'] ?>">
                 <input type="checkbox" id="<?= $action['action_id'] ?>" class="todo-checkbox admin-action"
                     data-action-id="<?= $action['action_id'] ?>" />
                 <label for="<?= $action['action_id'] ?>" class="todo-label"><?= $action['action_name'] ?></label>
@@ -97,8 +97,7 @@
     </div>
 
     <div class="d-flex justify-content-end gap-2 mt-4">
-        <button type="button" id="btn_save_action" class="btn btn-primary d-flex align-items-center"
-            data-bs-dismiss="modal">
+        <button type="button" id="btn_save_action" class="btn btn-primary d-flex align-items-center">
             <iconify-icon icon="fa7-solid:save" width="20" height="20"></iconify-icon>
             Simpan
         </button>
@@ -127,7 +126,7 @@
         // Update admin action checkboxes
         <?php foreach ($actions as $action): ?>
             var checkbox = $('#<?= $action['action_id'] ?>');
-            var item = $('#item_<?= $action['action_id'] ?>');
+            var item = $('#action_item_<?= $action['action_id'] ?>');
 
             if (hasSudahBersih) {
                 checkbox.prop('disabled', true);
@@ -244,8 +243,30 @@
     });
 
     $('#btn_save_action').on('click', function () {
-        if (typeof updateItemStatus === 'function') {
-            updateItemStatus();
+        var modalEl = document.getElementById('bs_modal_md');
+        var saveBtn = this;
+
+        // Prevent accessibility warning when Bootstrap applies aria-hidden during hide
+        if (saveBtn === document.activeElement) {
+            saveBtn.blur();
         }
+
+        var syncParentState = function () {
+            if (typeof updateItemStatus === 'function') {
+                updateItemStatus();
+            }
+        };
+
+        if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            syncParentState();
+            return;
+        }
+
+        $(modalEl).one('hidden.bs.modal', function () {
+            syncParentState();
+        });
+
+        var modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modalInstance.hide();
     });
 </script>

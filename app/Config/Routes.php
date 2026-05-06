@@ -23,6 +23,8 @@ $routes->group('admin', static function (RouteCollection $routes) {
     $routes->get('/', 'Admin\Dashboard::index');
     $routes->get('get_stats', 'Admin\Dashboard::get_stats');
     $routes->get('get_room_visits', 'Admin\Dashboard::get_room_visits');
+    $routes->get('get_locations', 'Admin\Dashboard::get_locations');
+    $routes->get('get_item_clean_count', 'Admin\Dashboard::get_item_clean_count');
     $routes->group('manage', static function (RouteCollection $routes) {
 
         // Management User
@@ -91,9 +93,19 @@ $routes->group("verifikator", static function (RouteCollection $routes) {
     $routes->post('update', 'Verifikator::update');
     // PUT
     $routes->put('edit', 'Verifikator::update');
+    // Export
+    $routes->get('export', 'Verifikator::export_filtered');
     // Laporan
     $routes->get('laporan/rekapitulasi', 'Verifikator::rekapitulasi');
     $routes->get('laporan/rekapitulasi/summary', 'Verifikator::get_rekapitulasi_summary');
+});
+
+// Profile Routes (all roles)
+$routes->group('profile', static function (RouteCollection $routes) {
+    $routes->get('/', 'Profile::index');
+    $routes->put('update_info', 'Profile::update_info');
+    $routes->put('update_password', 'Profile::update_password');
+    $routes->post('update_photo', 'Profile::update_photo');
 });
 
 $routes->set404Override(function () {

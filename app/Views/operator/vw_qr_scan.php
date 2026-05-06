@@ -16,7 +16,8 @@
 								<div class="border border-4 border-white d-flex align-items-center justify-content-center rounded-circle overflow-hidden"
 									style="width: 100px; height: 100px;">
 									<img src="<?= profile_image_url($user_info['name'] ?? null) ?>"
-										class="w-100 h-100" alt="<?= esc($user_info['name']) ?>">
+										class="w-100 h-100" alt="<?=
+										esc($user_info['name']) ?>">
 								</div>
 							</div>
 						</div>
@@ -57,8 +58,8 @@
 		<div class="card-body w-100">
 			<?php foreach ($items as $item): ?>
 				<button class="btn btn-outline-primary btn-sm w-100 my-1 text-start position-relative"
-					id="item_<?= $item['item_id'] ?>"
-					onclick="openActionModal('<?= $item['item_id'] ?>', '<?= esc($item['item_name']) ?>')">
+					id="scan_item_<?= $item['item_id'] ?>"
+					onclick="openActionModal(<?= (int) $item['item_id'] ?>)">
 					<i class="fas fa-check-square"></i> <?= esc($item['item_name']) ?>
 					<?php if (in_array($item['item_id'], $revision_items ?? [])): ?>
 						<span
@@ -91,6 +92,7 @@
 	const csrfToken = '<?= csrf_token() ?>';
 	const csrfHash = '<?= csrf_hash() ?>';
 	const itemIds = <?= json_encode(array_column($items, 'item_id')) ?>;
+	const revisionItemIds = <?= json_encode(array_values($revision_items ?? [])) ?>;
 	const rotateCameraButton = document.getElementById('rotate_camera');
 	const stopCameraButton = document.getElementById('stop_camera');
 	const startCameraButton = document.getElementById('start_camera');
@@ -99,6 +101,7 @@
 
 	let qrScanner;
 	let cameraState = 1;
+	let isHandlingScan = false;
 
 	// Initialize page
 	document.addEventListener('DOMContentLoaded', function () {
@@ -183,10 +186,35 @@
 			});
 	}
 
+	function stopScannerAndShowItems() {
+		const revealItems = () => {
+			$('#reader').addClass('d-none').empty();
+			$('#camera_container').addClass('d-none');
+			$('#card_result').removeClass('d-none');
+		};
+
+		if (!qrScanner) {
+			revealItems();
+			return;
+		}
+
+		qrScanner.stop()
+			.then(() => {
+				revealItems();
+			})
+			.catch(() => {
+				revealItems();
+			});
+	}
+
 	/**
 	 * Handle QR code scan result
 	 */
 	function onQrCodeScanned(decodedText) {
+		if (isHandlingScan) {
+			return;
+		}
+
 		try {
 			const result = JSON.parse(decodedText);
 
@@ -196,12 +224,12 @@
 			}
 
 			// Save scanned data and show items
+			isHandlingScan = true;
 			localStorage.setItem('scanned_qr', decodedText);
-			qrScanner.stop();
-			$('#camera_container').addClass('d-none');
-			$('#card_result').removeClass('d-none');
+			stopScannerAndShowItems();
 		} catch (e) {
 			toastr.error('Format QR tidak valid', 'Error');
+			isHandlingScan = false;
 		}
 	}
 
@@ -215,7 +243,7 @@
 	/**
 	 * Open modal to select actions for an item
 	 */
-	function openActionModal(itemId, itemName) {
+	function openActionModal(itemId) {
 		$.ajax({
 			url: '<?= base_url('operator/modal'); ?>',
 			type: 'POST',
@@ -231,7 +259,7 @@
 				$('#bs_modal_md').modal('show');
 
 				// Update UI after modal is closed
-				$('#bs_modal_md').on('hidden.bs.modal', function () {
+				$('#bs_modal_md').off('hidden.bs.modal').on('hidden.bs.modal', function () {
 					updateItemStatus();
 				});
 			},
@@ -258,8 +286,12 @@
 	function submitData() {
 		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};
 
-		if (!isAllItemsCompleted()) {
-			toastr.warning('Semua item harus memiliki action yang dipilih sebelum menyimpan.', 'Peringatan');
+		if (!hasMinimumItemsFilled()) {
+			if (revisionItemIds.length > 0) {
+				toastr.warning('Setidaknya satu item revisi harus diisi sebelum menyimpan.', 'Peringatan');
+			} else {
+				toastr.warning('Setidaknya satu item harus diisi sebelum menyimpan.', 'Peringatan');
+			}
 			return;
 		}
 
@@ -339,20 +371,46 @@
 		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};
 
 		itemIds.forEach((itemId) => {
-			const $btn = $('#item_' + itemId);
+			const $btn = $('#scan_item_' + itemId);
+
+			// Defensive reset: ensure modal checkbox state can never leave scan buttons disabled.
+			$btn.prop('disabled', false);
+			$btn.removeClass('disabled');
+			$btn.css('pointer-events', 'auto');
 
 			if (currentActionData[locationId] &&
 				currentActionData[locationId][itemId] &&
 				Object.keys(currentActionData[locationId][itemId]).length > 0) {
-				$btn.addClass('active').css('opacity', '0.7');
+				$btn.addClass('active btn-primary').removeClass('btn-outline-primary').css('opacity', '1');
 			} else {
-				$btn.removeClass('active').css('opacity', '1');
+				$btn.removeClass('active btn-primary').addClass('btn-outline-primary').css('opacity', '1');
 			}
 		});
 	}
 
 	/**
-	 * Check if all items have been completed
+	 * Check minimum items filled:
+	 * - Revision mode: at least 1 of the revision items must be filled
+	 * - Normal mode: at least 1 item must be filled
+	 */
+	function hasMinimumItemsFilled() {
+		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};
+		const locationData = currentActionData[locationId] || {};
+
+		const isFilled = (itemId) =>
+			locationData[itemId] && Object.keys(locationData[itemId]).length > 0;
+
+		if (revisionItemIds.length > 0) {
+			// In revision mode: at least one revised item must be filled
+			return revisionItemIds.some(id => isFilled(id));
+		}
+
+		// Normal mode: at least one item filled
+		return itemIds.some(id => isFilled(id));
+	}
+
+	/**
+	 * Check if all items have been completed (kept for reference, no longer used for submit gate)
 	 */
 	function isAllItemsCompleted() {
 		const currentActionData = JSON.parse(localStorage.getItem('action_data')) || {};

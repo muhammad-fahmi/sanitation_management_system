@@ -1,32 +1,37 @@
 services:
   # ── Application ─────────────────────────────────────────────────────────────
   app:
-    image: ${DOCKER_IMAGE:-1808561084/bionic-backend}:${DOCKER_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 1808561084/sms:v1
     container_name: bionic_app
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-8080}:80"
+      - "8080:80"
     environment:
-      CI_ENVIRONMENT: ${CI_ENVIRONMENT:-production}
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080/}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      CI_ENVIRONMENT: production
+      APP_BASE_URL: http://localhost:8080/
+      COOKIE_DOMAIN: ""
       DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-bionic_db}
-      DB_USER: ${DB_USER:-bionic_user}
-      DB_PASS: ${DB_PASS:-change_me_in_local}
+      DB_NAME: bionic_db
+      DB_USER: bionic_user
+      DB_PASS: Bionic@natura123
       DB_DRIVER: Postgre
-      CACHE_HANDLER: ${CACHE_HANDLER:-redis}
-      CACHE_BACKUP_HANDLER: ${CACHE_BACKUP_HANDLER:-file}
+      DB_PORT: 5432
+      CACHE_HANDLER: redis
+      CACHE_BACKUP_HANDLER: file
       REDIS_HOST: redis
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      REDIS_DB: ${REDIS_DB:-0}
-      AUTO_SEED: ${AUTO_SEED:-true}
-      SEED_FORCE: ${SEED_FORCE:-false}
-      SEEDER_CLASS: ${SEEDER_CLASS:-MainSeeder}
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+      # from here are custom env vars for the app
+      AUTO_SEED: true
+      SEED_FORCE: false
+      SEEDER_CLASS: MainSeeder
     volumes:
       - app_writable:/var/www/html/writable
+      - public_uploads:/var/www/html/public/uploads/revisions
     depends_on:
       db:
         condition: service_healthy
@@ -37,21 +42,18 @@ services:
 
   # ── Database ─────────────────────────────────────────────────────────────────
   db:
-    image: postgres:16-alpine
+    image: postgres:18.3
     container_name: bionic_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-bionic_db}
-      POSTGRES_USER: ${DB_USER:-bionic_user}
-      POSTGRES_PASSWORD: ${DB_PASS:-change_me_in_local}
+      - PGDATA=/var/lib/postgresql/18/docker
+      - POSTGRES_DB=bionic_db
+      - POSTGRES_USER=bionic_user
+      - POSTGRES_PASSWORD=Bionic@natura123
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${DB_USER:-bionic_user} -d ${DB_NAME:-bionic_db}",
-        ]
+      test: [ "CMD-SHELL", "pg_isready -U bionic_user -d bionic_db" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -60,14 +62,14 @@ services:
 
   # ── Cache ───────────────────────────────────────────────────────────────────
   redis:
-    image: redis:7-alpine
+    image: redis:alpine
     container_name: bionic_redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: [ "redis-server", "--appendonly", "yes" ]
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -76,8 +78,10 @@ services:
 
 volumes:
   db_data:
+    name: "my-app-data"
   app_writable:
   redis_data:
+  public_uploads:
 
 networks:
   bionic_net:

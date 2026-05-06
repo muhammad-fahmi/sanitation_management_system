@@ -38,13 +38,13 @@
         <div class="card-body">
             <div class="mb-3">
                 <label for="filterLocation" class="form-label">Filter Lokasi</label>
-                <select id="filterLocation" class="form-select">
+                <select id="filterLocation" class="form-select" data-placeholder="Semua Lokasi">
                     <option value="0">Semua Lokasi</option>
                 </select>
             </div>
             <div class="mb-3">
                 <label for="filterDate" class="form-label">Filter Tanggal</label>
-                <select id="filterDate" class="form-select">
+                <select id="filterDate" class="form-select" data-placeholder="Semua Tanggal">
                     <option value="0">Semua Tanggal</option>
                 </select>
             </div>
@@ -55,6 +55,12 @@
                     </button>
                     <button type="button" class="btn btn-success" id="verifyAllPending">
                         <iconify-icon icon="solar:check-read-bold"></iconify-icon> Verify All
+                    </button>
+                    <button type="button" class="btn btn-danger" id="btnExportPdf">
+                        <iconify-icon icon="solar:file-pdf-bold"></iconify-icon> Export PDF
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnExportExcel" style="background:#1d6f42;border-color:#1d6f42;">
+                        <iconify-icon icon="solar:file-xls-bold"></iconify-icon> Export Excel
                     </button>
                 </div>
             </div>
@@ -153,6 +159,30 @@
 <?= $this->section('script') ?>
 <script>
     $(document).ready(function () {
+        const initFilterSelect2 = () => {
+            if (!$.fn.select2) {
+                return;
+            }
+
+            ['#filterLocation', '#filterDate'].forEach(function (selector) {
+                const $el = $(selector);
+                if (!$el.length) {
+                    return;
+                }
+
+                if ($el.hasClass('select2-hidden-accessible')) {
+                    $el.select2('destroy');
+                }
+
+                $el.select2({
+                    theme: 'bootstrap-5',
+                    width: '100%'
+                });
+            });
+        };
+
+        initFilterSelect2();
+
         const getStatusLabel = (rawStatus) => {
             const status = (rawStatus || '').toLowerCase();
             switch (status) {
@@ -361,7 +391,7 @@
 
                     $('#reviseModal').data('task-id', id);
                     $('#reviseModalLabel').text(message ? 'Edit Revisi Tugas' : 'Revisi Tugas');
-                    $('#btnRevise').text(message ? 'Update' : 'Revisi');
+                    $('#btnRevise').html(message ? '<iconify-icon icon="fa7-solid:save"></iconify-icon> Update' : '<iconify-icon icon="fa7-solid:save"></iconify-icon> Revisi');
                     $('#reviseModal').modal('show');
                 },
                 error: function () {
@@ -554,6 +584,10 @@
             } else {
                 $select.val('0');
             }
+
+            if ($select.hasClass('select2-hidden-accessible')) {
+                $select.trigger('change.select2');
+            }
         };
 
         const formatDateLabel = (dateString) => {
@@ -631,6 +665,14 @@
         $('#resetFilters').on('click', function () {
             $('#filterLocation').val('0');
             $('#filterDate').val('0');
+
+            if ($('#filterLocation').hasClass('select2-hidden-accessible')) {
+                $('#filterLocation').trigger('change.select2');
+            }
+            if ($('#filterDate').hasClass('select2-hidden-accessible')) {
+                $('#filterDate').trigger('change.select2');
+            }
+
             loadLocations();
             loadDates();
             taskTable.ajax.reload();
@@ -638,6 +680,20 @@
 
         loadLocations();
         loadDates();
+
+        const buildExportUrl = (format) => {
+            const locationId = $('#filterLocation').val() || '0';
+            const date = $('#filterDate').val() || '0';
+            return '<?= base_url('verifikator/export') ?>?format=' + format + '&location_id=' + encodeURIComponent(locationId) + '&date=' + encodeURIComponent(date);
+        };
+
+        $('#btnExportPdf').on('click', function () {
+            window.open(buildExportUrl('pdf'), '_blank');
+        });
+
+        $('#btnExportExcel').on('click', function () {
+            window.location.href = buildExportUrl('excel');
+        });
     });
 </script>
 <?= $this->endSection() ?>

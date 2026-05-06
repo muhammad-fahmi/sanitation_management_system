@@ -92,7 +92,7 @@
             },
             password: {
                 required: true,
-                minlength: 6
+                minlength: 3
             },
             password_confirm: {
                 required: true,

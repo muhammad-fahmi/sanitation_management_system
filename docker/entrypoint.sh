@@ -26,9 +26,21 @@ mkdir -p \
     /var/www/html/writable/logs \
     /var/www/html/writable/session \
     /var/www/html/writable/uploads \
+    /var/www/html/writable/uploads/revisions \
     /var/www/html/writable/debugbar
 chown -R www-data:www-data /var/www/html/writable
 chmod -R 775 /var/www/html/writable
+
+echo "==> Preparing public upload directories..."
+mkdir -p \
+    /var/www/html/public/uploads/revisions
+chown -R www-data:www-data /var/www/html/public/uploads
+chmod -R 775 /var/www/html/public/uploads
+
+echo "==> Migrating legacy uploads to writable volume (if any)..."
+if [ -d /var/www/html/public/uploads/revisions ]; then
+    cp -an /var/www/html/public/uploads/revisions/. /var/www/html/writable/uploads/revisions/ || true
+fi
 
 echo "==> Clearing persisted framework caches..."
 rm -f /var/www/html/writable/cache/FactoriesCache_* \
