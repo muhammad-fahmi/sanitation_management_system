@@ -14,13 +14,13 @@
 # ENVIRONMENT
 #--------------------------------------------------------------------
 
-# CI_ENVIRONMENT = production
+# CI_ENVIRONMENT = development
 
 #--------------------------------------------------------------------
 # APP
 #--------------------------------------------------------------------
 
-# app.baseURL = ''
+# app.baseURL = 'http://localhost:8080/'
 # If you have trouble with `.`, you could also use `_`.
 # app_baseURL = ''
 # app.forceGlobalSecureRequests = false
@@ -31,12 +31,13 @@
 #--------------------------------------------------------------------
 
 # database.default.hostname = localhost
-# database.default.database = ci4
-# database.default.username = root
-# database.default.password = root
-# database.default.DBDriver = MySQLi
+# database.default.database = bionic_db
+# database.default.username = postgres
+# database.default.password = postgres
+# database.default.schema = public
+# database.default.DBDriver = Postgre
 # database.default.DBPrefix =
-# database.default.port = 3306
+# database.default.port = 5432
 
 # If you use MySQLi as tests, first update the values of Config\Database::$tests.
 # database.tests.hostname = localhost
@@ -53,8 +54,7 @@
 # ENCRYPTION
 #--------------------------------------------------------------------
 
-# encryption.key =
-
+encryption.key = hex2bin:b595b9c40458b341217531b21f2cf468cc2da49871f2263999f8f3308f6cdfba
 #--------------------------------------------------------------------
 # SESSION
 #--------------------------------------------------------------------
@@ -67,3 +67,15 @@
 #--------------------------------------------------------------------
 
 # logger.threshold = 4
+
+# Khusus Untuk Docker Development
+# CI_ENVIRONMENT = production
+# APP_BASE_URL = http://localhost:8080/
+# DB_HOST= db
+# DB_NAME= <Ganti dengan nama database>
+# DB_USER= <Ganti dengan username database>
+# DB_PASS= <Ganti dengan password database>
+# REDIS_HOST= redis
+# REDIS_PORT= 6379
+# REDIS_PASSWORD= ""
+# REDIS_DB= 0
