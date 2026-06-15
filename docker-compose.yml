@@ -10,22 +10,21 @@ services:
     ports:
       - "8080:80"
     environment:
-      CI_ENVIRONMENT: production
-      APP_BASE_URL: http://localhost:8080/
+      CI_ENVIRONMENT: ${CI_ENVIRONMENT}
+      APP_BASE_URL: ${APP_BASE_URL}
       COOKIE_DOMAIN: ""
-      DB_HOST: db
-      DB_NAME: bionic_db
-      DB_USER: bionic_user
-      DB_PASS: Bionic@natura123
+      DB_HOST: ${DB_HOST:?DB_HOST cannot empty}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
       DB_DRIVER: Postgre
       DB_PORT: 5432
       CACHE_HANDLER: redis
       CACHE_BACKUP_HANDLER: file
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
-      # from here are custom env vars for the app
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
       AUTO_SEED: true
       SEED_FORCE: false
       SEEDER_CLASS: MainSeeder
@@ -45,11 +44,13 @@ services:
     image: postgres:18.3
     container_name: bionic_db
     restart: unless-stopped
+    expose:
+      - 5432
     environment:
       - PGDATA=/var/lib/postgresql/18/docker
-      - POSTGRES_DB=bionic_db
-      - POSTGRES_USER=bionic_user
-      - POSTGRES_PASSWORD=Bionic@natura123
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
     volumes:
       - db_data:/var/lib/postgresql
     healthcheck:
@@ -66,6 +67,8 @@ services:
     container_name: bionic_redis
     restart: unless-stopped
     command: [ "redis-server", "--appendonly", "yes" ]
+    expose:
+      - 6379
     volumes:
       - redis_data:/data
     healthcheck:
